@@ -1,0 +1,5 @@
+apps/backend/src/modules/transactions/contract-data/abi/factory.abi.ts
+apps/backend/src/modules/transactions/contract-data/abi/market.abi.ts
+apps/backend/src/modules/transactions/contract-data/abi/collateral.abi.ts
+apps/backend/src/modules/transactions/contract-data/abi/conditionalTokens.abi.ts
+apps/frontend/.next

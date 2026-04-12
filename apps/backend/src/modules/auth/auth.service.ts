@@ -58,7 +58,9 @@ export class AuthService {
 
   async refreshToken(refreshToken: string): Promise<AuthTokensDto> {
     try {
-      const payload = this.jwtService.verify<{ id: string; type: string }>(refreshToken);
+      const payload = this.jwtService.verify<{ id: string; type: string }>(
+        refreshToken,
+      );
       if (payload.type !== 'refresh') {
         throw new UnauthorizedException('Invalid refresh token');
       }
@@ -87,16 +89,21 @@ export class AuthService {
 
   // ─── API Key Management ───────────────────────────────────────────────
 
-  async createApiKey(userId: string, dto: CreateApiKeyDto): Promise<ApiKeyCreatedDto> {
+  async createApiKey(
+    userId: string,
+    dto: CreateApiKeyDto,
+  ): Promise<ApiKeyCreatedDto> {
     const rawKey = `rk_${crypto.randomBytes(32).toString('hex')}`;
     const hashedKey = crypto.createHash('sha256').update(rawKey).digest('hex');
     const prefix = rawKey.slice(0, 12);
+    const signingSecret = crypto.randomBytes(32).toString('hex');
 
     const entity = this.apiKeyRepository.create({
       userId,
       name: dto.name,
       hashedKey,
       prefix,
+      signingSecret,
     });
     const saved = await this.apiKeyRepository.save(entity);
 
@@ -104,6 +111,7 @@ export class AuthService {
       id: saved.id,
       name: saved.name,
       key: rawKey,
+      signingSecret,
       createdAt: saved.createdAt,
     };
   }
@@ -135,15 +143,30 @@ export class AuthService {
    * Returns the userId if valid.
    */
   async validateApiKey(rawKey: string): Promise<string> {
+    const { userId } = await this.validateApiKeyFull(rawKey);
+    return userId;
+  }
+
+  /**
+   * Validate an API key and return userId + signingSecret.
+   * Used by HmacAuthGuard to verify request signatures.
+   */
+  async validateApiKeyFull(
+    rawKey: string,
+  ): Promise<{ userId: string; signingSecret: string | null }> {
     const hashedKey = crypto.createHash('sha256').update(rawKey).digest('hex');
-    const apiKey = await this.apiKeyRepository.findOne({ where: { hashedKey } });
+    const apiKey = await this.apiKeyRepository.findOne({
+      where: { hashedKey },
+    });
     if (!apiKey) {
       throw new UnauthorizedException('Invalid API key');
     }
 
     // Update lastUsedAt (fire-and-forget)
-    this.apiKeyRepository.update(apiKey.id, { lastUsedAt: new Date() }).catch(() => {});
+    this.apiKeyRepository
+      .update(apiKey.id, { lastUsedAt: new Date() })
+      .catch(() => {});
 
-    return apiKey.userId;
+    return { userId: apiKey.userId, signingSecret: apiKey.signingSecret };
   }
 }

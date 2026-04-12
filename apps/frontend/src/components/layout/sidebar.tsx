@@ -8,7 +8,7 @@ const navItems = [
   { href: '/rules', label: 'Accrual Rules', icon: 'R' },
   { href: '/conversions', label: 'Conversions', icon: 'C' },
   { href: '/payments', label: 'Payments', icon: '$' },
-  { href: '/analytics', label: 'Analytics', icon: 'A' },
+  { href: '/integration', label: 'Integration', icon: 'I' },
   { href: '/api-keys', label: 'API Keys', icon: 'K' },
 ];
 

@@ -6,10 +6,7 @@ import { PaymentsController } from './payments.controller';
 import { PartnersModule } from '../partners/partners.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([PaymentEntity]),
-    PartnersModule,
-  ],
+  imports: [TypeOrmModule.forFeature([PaymentEntity]), PartnersModule],
   controllers: [PaymentsController],
   providers: [PaymentsService],
   exports: [PaymentsService],

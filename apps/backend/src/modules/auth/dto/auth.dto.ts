@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  IsOptional,
+} from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -62,6 +69,9 @@ export class ApiKeyCreatedDto {
   @ApiProperty({ description: 'Full API key (shown only once)' })
   key: string;
 
+  @ApiProperty({ description: 'HMAC signing secret (shown only once)' })
+  signingSecret: string;
+
   @ApiProperty()
   createdAt: Date;
 }
@@ -73,7 +83,10 @@ export class ApiKeyDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty({ description: 'Key prefix for identification', example: 'rk_a1b2c3d4' })
+  @ApiProperty({
+    description: 'Key prefix for identification',
+    example: 'rk_a1b2c3d4',
+  })
   prefix: string;
 
   @ApiPropertyOptional()

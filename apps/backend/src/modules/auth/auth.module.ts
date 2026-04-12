@@ -11,6 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from './guards/api-key-auth.guard';
 import { CombinedAuthGuard } from './guards/combined-auth.guard';
+import { HmacAuthGuard } from './guards/hmac-auth.guard';
 
 @Module({
   imports: [
@@ -32,8 +33,16 @@ import { CombinedAuthGuard } from './guards/combined-auth.guard';
     JwtAuthGuard,
     ApiKeyAuthGuard,
     CombinedAuthGuard,
+    HmacAuthGuard,
   ],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule, ApiKeyAuthGuard, CombinedAuthGuard],
+  exports: [
+    AuthService,
+    JwtModule,
+    JwtAuthGuard,
+    ApiKeyAuthGuard,
+    CombinedAuthGuard,
+    HmacAuthGuard,
+  ],
 })
 export class AuthModule {}

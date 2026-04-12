@@ -1,0 +1,13 @@
+{
+    email admin@palii.me
+}
+
+app.ref.palii.me {
+    encode zstd gzip
+    reverse_proxy frontend:3000
+}
+
+api.ref.palii.me {
+    encode zstd gzip
+    reverse_proxy backend:3001
+}

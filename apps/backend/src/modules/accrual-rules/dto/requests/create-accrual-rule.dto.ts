@@ -12,7 +12,8 @@ import type { RuleType } from '../../entities/accrual-rule.entity';
 
 export class CreateAccrualRuleDto {
   @ApiPropertyOptional({
-    description: 'Partner ID. If omitted, rule applies to all partners (global rule)',
+    description:
+      'Partner ID. If omitted, rule applies to all partners (global rule)',
   })
   @IsOptional()
   @IsUUID()
@@ -37,7 +38,8 @@ export class CreateAccrualRuleDto {
 
   @ApiPropertyOptional({
     example: 'revenue',
-    description: 'Event property name containing revenue value (used with ruleType=percentage)',
+    description:
+      'Event property name containing revenue value (used with ruleType=percentage)',
   })
   @IsOptional()
   @IsString()

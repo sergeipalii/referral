@@ -63,14 +63,19 @@ export class PartnersService {
     return partner;
   }
 
-  async findByCode(userId: string, code: string): Promise<PartnerEntity | null> {
+  async findByCode(
+    userId: string,
+    code: string,
+  ): Promise<PartnerEntity | null> {
     return this.partnersRepository.findOne({ where: { userId, code } });
   }
 
   async create(userId: string, dto: CreatePartnerDto): Promise<PartnerDto> {
     const existing = await this.findByCode(userId, dto.code);
     if (existing) {
-      throw new ConflictException(`Partner with code "${dto.code}" already exists`);
+      throw new ConflictException(
+        `Partner with code "${dto.code}" already exists`,
+      );
     }
     const partner = this.partnersRepository.create({ ...dto, userId });
     const saved = await this.partnersRepository.save(partner);
@@ -87,7 +92,9 @@ export class PartnersService {
     if (dto.code && dto.code !== partner.code) {
       const existing = await this.findByCode(userId, dto.code);
       if (existing) {
-        throw new ConflictException(`Partner with code "${dto.code}" already exists`);
+        throw new ConflictException(
+          `Partner with code "${dto.code}" already exists`,
+        );
       }
     }
 

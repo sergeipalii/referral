@@ -1,5 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, MaxLength, IsOptional, IsObject, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsOptional,
+  IsObject,
+  IsBoolean,
+} from 'class-validator';
 
 export class UpdatePartnerDto {
   @ApiPropertyOptional({ example: 'ACME_2025' })

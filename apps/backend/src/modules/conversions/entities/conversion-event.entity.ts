@@ -4,9 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Unique,
 } from 'typeorm';
 
 @Entity('conversion_events')
+@Unique('UQ_conv_bucket', ['userId', 'partnerId', 'eventName', 'eventDate'])
 export class ConversionEventEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,9 +36,6 @@ export class ConversionEventEntity {
 
   @Column({ type: 'uuid', nullable: true })
   accrualRuleId: string | null;
-
-  @Column({ type: 'uuid', nullable: true })
-  syncJobId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

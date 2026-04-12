@@ -18,10 +18,4 @@ export default () => ({
   jwt: {
     secret: process.env.JWT_SECRET,
   },
-  cron: {
-    disabled: process.env.CRON_DISABLED === 'true',
-  },
-  encryption: {
-    key: process.env.ENCRYPTION_KEY,
-  },
 });

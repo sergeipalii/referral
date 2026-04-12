@@ -1,8 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, MaxLength, IsOptional, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsOptional,
+  IsObject,
+} from 'class-validator';
 
 export class CreatePartnerDto {
-  @ApiProperty({ example: 'ACME_2024', description: 'Unique referral code (used as UTM value)' })
+  @ApiProperty({
+    example: 'ACME_2024',
+    description: 'Unique referral code (used as UTM value)',
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(128)
@@ -19,7 +28,9 @@ export class CreatePartnerDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ example: { email: 'partner@acme.com', paymentDetails: 'IBAN...' } })
+  @ApiPropertyOptional({
+    example: { email: 'partner@acme.com', paymentDetails: 'IBAN...' },
+  })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;

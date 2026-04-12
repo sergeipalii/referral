@@ -29,9 +29,6 @@ export class ConversionEventDto {
   @ApiPropertyOptional()
   accrualRuleId: string | null;
 
-  @ApiPropertyOptional()
-  syncJobId: string | null;
-
   @ApiProperty()
   createdAt: Date;
 
@@ -49,7 +46,6 @@ export class ConversionEventDto {
     dto.revenueSum = entity.revenueSum;
     dto.accrualAmount = entity.accrualAmount;
     dto.accrualRuleId = entity.accrualRuleId;
-    dto.syncJobId = entity.syncJobId;
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;
     return dto;

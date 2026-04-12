@@ -24,6 +24,10 @@ export class ApiKeyEntity {
   @Column({ type: 'varchar', length: 16 })
   prefix: string;
 
+  /** Plaintext shared secret for HMAC request signing (shown once at creation) */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  signingSecret: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
   lastUsedAt: Date | null;
 

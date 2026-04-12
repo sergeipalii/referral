@@ -62,7 +62,9 @@ export class PaymentsService {
   }
 
   async findOneOrFail(userId: string, id: string): Promise<PaymentEntity> {
-    const payment = await this.paymentsRepository.findOne({ where: { id, userId } });
+    const payment = await this.paymentsRepository.findOne({
+      where: { id, userId },
+    });
     if (!payment) {
       throw new NotFoundException(`Payment with ID ${id} not found`);
     }
@@ -89,7 +91,11 @@ export class PaymentsService {
     return PaymentDto.fromEntity(saved);
   }
 
-  async update(userId: string, id: string, dto: UpdatePaymentDto): Promise<PaymentDto> {
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdatePaymentDto,
+  ): Promise<PaymentDto> {
     const payment = await this.findOneOrFail(userId, id);
     Object.assign(payment, {
       ...dto,
@@ -105,14 +111,23 @@ export class PaymentsService {
     return { success: true, message: 'Payment deleted successfully' };
   }
 
-  async getPartnerBalance(userId: string, partnerId: string): Promise<PartnerBalanceDto> {
+  async getPartnerBalance(
+    userId: string,
+    partnerId: string,
+  ): Promise<PartnerBalanceDto> {
     const partner = await this.partnersService.findOneOrFail(userId, partnerId);
 
     const accrualResult = await this.paymentsRepository.manager
       .getRepository('conversion_events')
       .createQueryBuilder('ce')
-      .select('COALESCE(SUM(ce."accrualAmount"::numeric), 0)::text', 'totalAccrued')
-      .where('ce."userId" = :userId AND ce."partnerId" = :partnerId', { userId, partnerId })
+      .select(
+        'COALESCE(SUM(ce."accrualAmount"::numeric), 0)::text',
+        'totalAccrued',
+      )
+      .where('ce."userId" = :userId AND ce."partnerId" = :partnerId', {
+        userId,
+        partnerId,
+      })
       .getRawOne<{ totalAccrued: string }>();
 
     const paymentResult = await this.paymentsRepository
@@ -125,13 +140,18 @@ export class PaymentsService {
         `COALESCE(SUM(CASE WHEN p."status" = 'pending' THEN p."amount"::numeric ELSE 0 END), 0)::text`,
         'pendingPayments',
       )
-      .where('p."userId" = :userId AND p."partnerId" = :partnerId', { userId, partnerId })
+      .where('p."userId" = :userId AND p."partnerId" = :partnerId', {
+        userId,
+        partnerId,
+      })
       .getRawOne<{ totalPaid: string; pendingPayments: string }>();
 
     const totalAccrued = accrualResult?.totalAccrued ?? '0';
     const totalPaid = paymentResult?.totalPaid ?? '0';
     const pendingPayments = paymentResult?.pendingPayments ?? '0';
-    const balance = (parseFloat(totalAccrued) - parseFloat(totalPaid)).toFixed(6);
+    const balance = (parseFloat(totalAccrued) - parseFloat(totalPaid)).toFixed(
+      6,
+    );
 
     return {
       partnerId: partner.id,

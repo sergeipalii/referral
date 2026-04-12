@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { ConversionEventEntity } from './entities/conversion-event.entity';
@@ -20,7 +20,6 @@ export interface UpsertConversionBucketData {
   revenueSum: number;
   accrualAmount: number;
   accrualRuleId: string | null;
-  syncJobId: string | null;
 }
 
 @Injectable()
@@ -35,10 +34,22 @@ export class ConversionsService {
     userId: string,
     query: ConversionsQueryDto,
   ): Promise<PaginatedResponseDto<ConversionEventDto>> {
-    const { page = 1, limit = 20, partnerId, eventName, dateFrom, dateTo } = query;
+    const {
+      page = 1,
+      limit = 20,
+      partnerId,
+      eventName,
+      dateFrom,
+      dateTo,
+    } = query;
     const offset = (page - 1) * limit;
 
-    const where = this.buildWhere(userId, { partnerId, eventName, dateFrom, dateTo });
+    const where = this.buildWhere(userId, {
+      partnerId,
+      eventName,
+      dateFrom,
+      dateTo,
+    });
 
     const [events, totalItems] = await this.conversionsRepository.findAndCount({
       where,
@@ -80,12 +91,19 @@ export class ConversionsService {
       .addSelect('p."name"', 'partnerName')
       .addSelect('p."code"', 'partnerCode')
       .addSelect('COALESCE(SUM(ce."count"), 0)::int', 'totalConversions')
-      .addSelect('COALESCE(SUM(ce."accrualAmount"::numeric), 0)::text', 'totalAccrualAmount')
+      .addSelect(
+        'COALESCE(SUM(ce."accrualAmount"::numeric), 0)::text',
+        'totalAccrualAmount',
+      )
       .addSelect(
         `COALESCE(SUM(CASE WHEN pay."status" = 'completed' THEN pay."amount"::numeric ELSE 0 END), 0)::text`,
         'totalPaid',
       )
-      .innerJoin('partners', 'p', 'p."id" = ce."partnerId" AND p."userId" = ce."userId"')
+      .innerJoin(
+        'partners',
+        'p',
+        'p."id" = ce."partnerId" AND p."userId" = ce."userId"',
+      )
       .leftJoin(
         'payments',
         'pay',
@@ -126,44 +144,38 @@ export class ConversionsService {
   }
 
   /**
-   * Idempotent upsert: deletes existing rows in the date range for the
-   * given userId+partnerId+eventName bucket, then inserts fresh data.
+   * Additive upsert: increments count/revenue/accrual for an existing bucket,
+   * or creates a new one. Used by the track endpoint.
+   * Requires UNIQUE constraint on (userId, partnerId, eventName, eventDate).
    */
-  async upsertBucket(data: UpsertConversionBucketData): Promise<void> {
-    await this.conversionsRepository.delete({
-      userId: data.userId,
-      partnerId: data.partnerId,
-      eventName: data.eventName,
-      eventDate: data.eventDate,
-    });
+  async addToBucket(
+    data: UpsertConversionBucketData,
+  ): Promise<ConversionEventEntity> {
+    const rows: ConversionEventEntity[] =
+      await this.conversionsRepository.query(
+        `INSERT INTO conversion_events ("userId", "partnerId", "eventName", "eventDate", "count", "revenueSum", "accrualAmount", "accrualRuleId")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT ("userId", "partnerId", "eventName", "eventDate")
+       DO UPDATE SET
+         "count" = conversion_events."count" + EXCLUDED."count",
+         "revenueSum" = conversion_events."revenueSum" + EXCLUDED."revenueSum",
+         "accrualAmount" = conversion_events."accrualAmount" + EXCLUDED."accrualAmount",
+         "accrualRuleId" = EXCLUDED."accrualRuleId",
+         "updatedAt" = NOW()
+       RETURNING *`,
+        [
+          data.userId,
+          data.partnerId,
+          data.eventName,
+          data.eventDate,
+          data.count,
+          data.revenueSum.toFixed(6),
+          data.accrualAmount.toFixed(6),
+          data.accrualRuleId,
+        ],
+      );
 
-    const entity = this.conversionsRepository.create({
-      userId: data.userId,
-      partnerId: data.partnerId,
-      eventName: data.eventName,
-      eventDate: data.eventDate,
-      count: data.count,
-      revenueSum: data.revenueSum.toFixed(6),
-      accrualAmount: data.accrualAmount.toFixed(6),
-      accrualRuleId: data.accrualRuleId,
-      syncJobId: data.syncJobId,
-    });
-
-    await this.conversionsRepository.save(entity);
-  }
-
-  /**
-   * Deletes all conversion_events rows for a userId within a date range.
-   * Called at the start of an idempotent sync run.
-   */
-  async deleteForRange(userId: string, dateFrom: string, dateTo: string): Promise<void> {
-    await this.conversionsRepository
-      .createQueryBuilder()
-      .delete()
-      .where('"userId" = :userId', { userId })
-      .andWhere('"eventDate" >= :dateFrom', { dateFrom })
-      .andWhere('"eventDate" <= :dateTo', { dateTo })
-      .execute();
+    return rows[0];
   }
 
   private buildWhere(

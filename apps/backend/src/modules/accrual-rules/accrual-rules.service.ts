@@ -78,7 +78,10 @@ export class AccrualRulesService {
     });
   }
 
-  async create(userId: string, dto: CreateAccrualRuleDto): Promise<AccrualRuleDto> {
+  async create(
+    userId: string,
+    dto: CreateAccrualRuleDto,
+  ): Promise<AccrualRuleDto> {
     const rule = this.rulesRepository.create({
       ...dto,
       userId,

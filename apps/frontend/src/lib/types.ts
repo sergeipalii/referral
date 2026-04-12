@@ -40,7 +40,6 @@ export interface ConversionEvent {
   revenueSum: string;
   accrualAmount: string;
   accrualRuleId: string | null;
-  syncJobId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,32 +80,6 @@ export interface PartnerSummary {
   balance: string;
 }
 
-export interface AnalyticsIntegration {
-  id: string;
-  userId: string;
-  providerType: string;
-  utmParameterName: string;
-  lastSyncedAt: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SyncJob {
-  id: string;
-  userId: string;
-  integrationId: string;
-  status: 'running' | 'completed' | 'failed';
-  rangeStart: string;
-  rangeEnd: string;
-  rawEventsCount: number;
-  conversionsCount: number;
-  errorMessage: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface ApiKey {
   id: string;
   name: string;
@@ -119,6 +92,7 @@ export interface ApiKeyCreated {
   id: string;
   name: string;
   key: string;
+  signingSecret: string;
   createdAt: string;
 }
 

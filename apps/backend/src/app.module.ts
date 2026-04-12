@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import configuration from './modules/config/configuration';
 import { configValidationSchema } from './modules/config/configuration.schema';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './modules/users/users.module';
@@ -10,7 +11,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PartnersModule } from './modules/partners/partners.module';
 import { AccrualRulesModule } from './modules/accrual-rules/accrual-rules.module';
-import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ConversionsModule } from './modules/conversions/conversions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 
@@ -25,6 +25,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
       },
     }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 100 }] }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -34,7 +35,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
         username: configService.get('database.username'),
         password: configService.get('database.password'),
         database: configService.get('database.database'),
-        entities: ['dist/**/*.entity{.ts,.js}'],
+        autoLoadEntities: true,
         synchronize: configService.get('database.synchronize'),
       }),
       inject: [ConfigService],
@@ -43,7 +44,6 @@ import { PaymentsModule } from './modules/payments/payments.module';
     AuthModule,
     PartnersModule,
     AccrualRulesModule,
-    AnalyticsModule,
     ConversionsModule,
     PaymentsModule,
   ],

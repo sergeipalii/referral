@@ -58,8 +58,6 @@ Required for backend (validated at startup via Joi in `apps/backend/src/modules/
 | `DB_HOST`, `DB_PORT` | Used only by TypeORM CLI config (`typeorm.config.ts`); defaults to localhost:5432 |
 | `DB_SYNCHRONIZE` | Set `true` only in dev; migrations are used otherwise |
 | `JWT_SECRET` | JWT signing secret (min 32 chars) — used for both access and refresh tokens |
-| `ENCRYPTION_KEY` | 32-byte hex string (64 chars) for AES-256-GCM encryption of analytics credentials |
-| `CRON_DISABLED` | Set `true` to disable daily analytics sync cron |
 | `PORT` | HTTP port (default 3001) |
 
 Place `.env` file in `apps/backend/`.
@@ -72,12 +70,11 @@ Place `.env` file in `apps/backend/`.
 
 ### Backend Module Layout (`apps/backend/src/modules/`)
 
-- **auth** — Email/password registration + login. Issues JWT tokens (access: 15min, refresh: 30d). API key management for programmatic access. Guards: `JwtAuthGuard`, `ApiKeyAuthGuard`, `CombinedAuthGuard`.
+- **auth** — Email/password registration + login. Issues JWT tokens (access: 15min, refresh: 30d). API key management for programmatic access (each key has a signing secret for HMAC). Guards: `JwtAuthGuard`, `ApiKeyAuthGuard`, `CombinedAuthGuard`, `HmacAuthGuard`.
 - **users** — User entity (email, hashedPassword, name). Single controller with `GET /users/self`.
 - **partners** — Referral partner CRUD. Each partner has a `code` (UTM value) unique per tenant. Soft-delete via `isActive` flag.
-- **accrual-rules** — Payout rules per Amplitude event type. Rules can be partner-specific (`partnerId` set) or global (`partnerId` null). Priority: partner-specific > global for the same `eventName`. Supports `fixed` and `percentage` rule types.
-- **analytics** — Integration with external analytics systems via provider pattern. Stores encrypted credentials (AES-256-GCM). Sync orchestration (manual + daily cron at 02:00 UTC). Currently implements Amplitude Export API. New provider = implement `AnalyticsProvider` interface + register in `AnalyticsProviderFactory`.
-- **conversions** — Aggregated conversion data per (userId, partnerId, eventName, eventDate) bucket. Populated by analytics sync. Provides per-partner summary with accrual totals and balance.
+- **accrual-rules** — Payout rules per event type. Rules can be partner-specific (`partnerId` set) or global (`partnerId` null). Priority: partner-specific > global for the same `eventName`. Supports `fixed` and `percentage` rule types.
+- **conversions** — Aggregated conversion data per (userId, partnerId, eventName, eventDate) bucket. Populated via `POST /api/conversions/track` endpoint (API key + HMAC auth, rate limited, idempotent). Also supports manual entry from UI. Includes `IdempotencyService` with daily cleanup cron. Provides per-partner summary with accrual totals and balance.
 - **payments** — Manual payment recording. Tracks status (pending/completed/cancelled), period, and reference. Balance endpoint computes accrued vs paid per partner.
 - **config** — `configuration.ts` (typed config factory), `configuration.schema.ts` (Joi validation), `typeorm.config.ts` (CLI-only DataSource).
 
@@ -90,18 +87,14 @@ Two auth methods, both resolve to the same `RequestUser { id }`:
 1. **JWT (UI flow)** — `POST /api/auth/register` or `/login` → `{ accessToken, refreshToken }`. Protected routes use `@UseGuards(JwtAuthGuard)` + `Authorization: Bearer <accessToken>`.
 2. **API Key (programmatic flow)** — Created via `POST /api/auth/api-keys`. Used via `X-API-Key` header. Protected routes can use `@UseGuards(ApiKeyAuthGuard)` or `@UseGuards(CombinedAuthGuard)` for either method.
 
-API keys are stored as SHA-256 hashes; the raw key is shown only once at creation. Key format: `rk_<64 hex chars>`.
+API keys are stored as SHA-256 hashes; the raw key is shown only once at creation. Key format: `rk_<64 hex chars>`. Each key also has a `signingSecret` (plaintext, 32 bytes hex) for HMAC-SHA256 request signing.
 
-### Analytics Provider Pattern
-```
-apps/backend/src/modules/analytics/providers/
-├── analytics-provider.interface.ts    — AnalyticsProvider interface + AnalyticsEvent type
-├── analytics-provider.factory.ts      — maps providerType string to provider instance
-└── amplitude/
-    ├── amplitude.provider.ts          — implements AnalyticsProvider
-    └── amplitude-api.client.ts        — HTTP calls to Amplitude Export API
-```
-Sync is idempotent: deletes existing conversion_events for the date range before inserting fresh data.
+### Conversion Tracking (`POST /api/conversions/track`)
+- Auth: `HmacAuthGuard` (validates API key via `X-API-Key`, verifies HMAC signature via `X-Signature: sha256=<hex>`)
+- Rate limited: `ApiKeyThrottleGuard` (100 req/min per API key, `@nestjs/throttler`)
+- Idempotency: optional `idempotencyKey` field prevents duplicate processing (keys stored 24h)
+- Additive upsert: uses `INSERT ... ON CONFLICT DO UPDATE SET count = count + EXCLUDED.count` for atomic aggregation
+- Accrual calculation: applies `findApplicableRule()` (partner-specific > global) with fixed/percentage logic
 
 ### DTO Convention
 - Request DTOs in `dto/requests/`, response DTOs in `dto/responses/`.

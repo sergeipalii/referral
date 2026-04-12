@@ -20,7 +20,10 @@ export class CreatePaymentDto {
   @IsNumberString()
   amount: string;
 
-  @ApiPropertyOptional({ enum: ['pending', 'completed', 'cancelled'], default: 'completed' })
+  @ApiPropertyOptional({
+    enum: ['pending', 'completed', 'cancelled'],
+    default: 'completed',
+  })
   @IsOptional()
   @IsEnum(['pending', 'completed', 'cancelled'])
   status?: PaymentStatus;

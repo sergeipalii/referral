@@ -41,9 +41,8 @@ export default function LandingPage() {
           <span className="block text-indigo-600">made simple</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-          Manage partners, track conversions from Amplitude and other analytics
-          platforms, configure payout rules, and keep track of payments — all in
-          one place.
+          Manage partners, track conversions via a simple API, configure payout
+          rules, and keep track of payments — all in one place.
         </p>
         <div className="mt-10 flex justify-center gap-4">
           <Link href="/register">
@@ -148,9 +147,9 @@ const features = [
     desc: 'Create and manage referral partners with unique tracking codes. Activate or deactivate partners anytime.',
   },
   {
-    icon: 'A',
-    title: 'Analytics Integration',
-    desc: 'Connect Amplitude or other analytics platforms. Automatically sync conversion events daily.',
+    icon: 'I',
+    title: 'Tracking API',
+    desc: 'Send conversion events via a simple REST API. Supports HMAC signing and idempotency for reliable tracking.',
   },
   {
     icon: 'R',
@@ -180,8 +179,8 @@ const steps = [
     desc: 'Add referral partners with unique UTM codes for tracking.',
   },
   {
-    title: 'Connect Analytics',
-    desc: 'Link your Amplitude account to sync conversion events.',
+    title: 'Integrate Tracking',
+    desc: 'Send conversion events from your backend or mobile app via our API.',
   },
   {
     title: 'Set Payout Rules',

@@ -164,7 +164,7 @@ export default function ConversionsPage() {
         ) : data ? (
           <EmptyState
             title="No conversions"
-            description="Conversions will appear here after syncing analytics data."
+            description="No conversions yet. Send events via the tracking API to see them here."
           />
         ) : null}
       </Card>

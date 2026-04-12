@@ -24,4 +24,11 @@ export class AppController {
   getInfo(): AppInfo {
     return this.appService.getInfo();
   }
+
+  @Get('health')
+  @ApiOperation({ summary: 'Liveness probe' })
+  @ApiResponse({ status: 200, description: 'Service is up' })
+  getHealth(): { status: 'ok' } {
+    return { status: 'ok' };
+  }
 }

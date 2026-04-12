@@ -7,8 +7,6 @@ import type {
   Payment,
   PartnerBalance,
   PartnerSummary,
-  AnalyticsIntegration,
-  SyncJob,
   ApiKey,
   ApiKeyCreated,
   PaginatedResponse,
@@ -294,36 +292,6 @@ class ApiClient {
 
   deletePayment(id: string) {
     return this.delete(`/payments/${id}`);
-  }
-
-  // Analytics
-  getIntegration() {
-    return this.get<AnalyticsIntegration>('/analytics/integration');
-  }
-
-  upsertIntegration(data: {
-    providerType: string;
-    apiKey: string;
-    secretKey: string;
-    utmParameterName?: string;
-    projectId?: string;
-  }) {
-    return this.put<AnalyticsIntegration>('/analytics/integration', data);
-  }
-
-  deleteIntegration() {
-    return this.delete('/analytics/integration');
-  }
-
-  triggerSync(data?: { rangeStart?: string; rangeEnd?: string }) {
-    return this.post<SyncJob>('/analytics/sync', data);
-  }
-
-  getSyncJobs(params?: { page?: number; limit?: number }) {
-    const q = new URLSearchParams();
-    if (params?.page) q.set('page', String(params.page));
-    if (params?.limit) q.set('limit', String(params.limit));
-    return this.get<PaginatedResponse<SyncJob>>(`/analytics/sync?${q}`);
   }
 
   // API Keys

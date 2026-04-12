@@ -120,20 +120,33 @@ export default function ApiKeysPage() {
           <div className="space-y-4">
             <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
               <p className="text-sm font-medium text-yellow-800 mb-2">
-                Copy this key now. You won&apos;t be able to see it again.
+                Copy these values now. You won&apos;t be able to see them again.
               </p>
-              <code className="block text-xs bg-white border border-yellow-300 rounded p-3 break-all select-all">
-                {createdKey.key}
-              </code>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-yellow-700 mb-1">API Key</p>
+                  <code className="block text-xs bg-white border border-yellow-300 rounded p-3 break-all select-all">
+                    {createdKey.key}
+                  </code>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-yellow-700 mb-1">Signing Secret (for HMAC)</p>
+                  <code className="block text-xs bg-white border border-yellow-300 rounded p-3 break-all select-all">
+                    {createdKey.signingSecret}
+                  </code>
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-3">
               <Button
                 variant="secondary"
                 onClick={() => {
-                  navigator.clipboard.writeText(createdKey.key);
+                  navigator.clipboard.writeText(
+                    `API Key: ${createdKey.key}\nSigning Secret: ${createdKey.signingSecret}`,
+                  );
                 }}
               >
-                Copy
+                Copy Both
               </Button>
               <Button onClick={() => setCreatedKey(null)}>Done</Button>
             </div>

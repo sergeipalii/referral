@@ -26,8 +26,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    expose:
-      - "3001"
+    ports:
+      - "127.0.0.1:3001:3001"
 
   frontend:
     build:
@@ -36,24 +36,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: https://api.ref.palii.me/api
     restart: unless-stopped
-    expose:
-      - "3000"
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - backend
-      - frontend
+      - "127.0.0.1:3000:3000"
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:

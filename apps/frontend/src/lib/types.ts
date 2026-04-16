@@ -12,6 +12,7 @@ export interface Partner {
   name: string;
   description: string | null;
   metadata: Record<string, unknown> | null;
+  payoutDetails: Record<string, unknown> | null;
   isActive: boolean;
   email: string | null;
   hasPassword: boolean;
@@ -19,6 +20,13 @@ export interface Partner {
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BatchPaymentsResult {
+  created: number;
+  totalAmount: string;
+  skippedPartners: number;
+  paymentIds: string[];
 }
 
 export interface AccrualRule {
@@ -134,6 +142,7 @@ export interface PartnerSelf {
   description: string | null;
   email: string;
   isActive: boolean;
+  payoutDetails: Record<string, unknown> | null;
   lastLoginAt: string | null;
   createdAt: string;
 }

@@ -26,6 +26,13 @@ export class PartnerEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 
+  /**
+   * Partner-editable payout details (IBAN, PayPal, Wise, crypto address, free
+   * text). Schema-less on the backend; the portal form provides the shape.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  payoutDetails: Record<string, any> | null;
+
   @Column({ default: true })
   isActive: boolean;
 

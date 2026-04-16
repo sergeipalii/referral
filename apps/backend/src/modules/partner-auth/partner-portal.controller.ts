@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -8,7 +8,10 @@ import {
 import { PartnerAuthService } from './partner-auth.service';
 import { PartnerJwtAuthGuard } from './guards/partner-jwt-auth.guard';
 import { GetPartner } from './decorators/get-partner.decorator';
-import { PartnerSelfDto } from './dto/partner-auth.dto';
+import {
+  PartnerSelfDto,
+  UpdatePartnerSelfDto,
+} from './dto/partner-auth.dto';
 import { PartnerDashboardDto } from './dto/partner-dashboard.dto';
 import {
   PartnerConversionsQueryDto,
@@ -46,6 +49,20 @@ export class PartnerPortalController {
     @GetPartner('userId') ownerUserId: string,
   ): Promise<PartnerSelfDto> {
     return this.partnerAuthService.getSelf(partnerId, ownerUserId);
+  }
+
+  @Patch('self')
+  @ApiOperation({
+    summary:
+      'Update partner-editable profile fields (description + payoutDetails)',
+  })
+  @ApiResponse({ status: 200, type: PartnerSelfDto })
+  updateSelf(
+    @GetPartner('id') partnerId: string,
+    @GetPartner('userId') ownerUserId: string,
+    @Body() dto: UpdatePartnerSelfDto,
+  ): Promise<PartnerSelfDto> {
+    return this.partnerAuthService.updateSelf(partnerId, ownerUserId, dto);
   }
 
   @Get('dashboard')

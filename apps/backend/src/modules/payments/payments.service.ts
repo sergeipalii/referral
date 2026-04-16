@@ -2,9 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { PaymentEntity } from './entities/payment.entity';
+import { PartnerEntity } from '../partners/entities/partner.entity';
 import { CreatePaymentDto } from './dto/requests/create-payment.dto';
 import { UpdatePaymentDto } from './dto/requests/update-payment.dto';
 import { PaymentsQueryDto } from './dto/requests/payments-query.dto';
+import { PaymentsExportQueryDto } from './dto/requests/payments-export-query.dto';
+import {
+  BatchPaymentsResultDto,
+  CreateBatchPaymentsDto,
+} from './dto/requests/create-batch-payments.dto';
 import { PaymentDto } from './dto/responses/payment.dto';
 import { PartnerBalanceDto } from './dto/responses/partner-balance.dto';
 import {
@@ -13,6 +19,18 @@ import {
 } from '../../common/dto/pagination-meta.dto';
 import { StandardResponseDto } from '../../common/dto/standard-response.dto';
 import { PartnersService } from '../partners/partners.service';
+
+/**
+ * RFC 4180 CSV field escaping: wrap in double quotes if the value contains
+ * a delimiter, quote, or newline; double any embedded quotes.
+ */
+function csvEscape(value: unknown): string {
+  const s = value === null || value === undefined ? '' : String(value);
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
 
 @Injectable()
 export class PaymentsService {
@@ -109,6 +127,208 @@ export class PaymentsService {
     await this.findOneOrFail(userId, id);
     await this.paymentsRepository.delete({ id, userId });
     return { success: true, message: 'Payment deleted successfully' };
+  }
+
+  /**
+   * Same filters as `findAll` but without pagination — materialises the full
+   * result set as a CSV string. Joins partner details so a finance team can
+   * take the file straight to a bank portal or send it to accounting without
+   * doing their own lookups.
+   */
+  async exportCsv(
+    userId: string,
+    query: PaymentsExportQueryDto,
+  ): Promise<string> {
+    const qb = this.paymentsRepository
+      .createQueryBuilder('p')
+      .innerJoin(
+        'partners',
+        'partner',
+        'partner."id" = p."partnerId" AND partner."userId" = p."userId"',
+      )
+      .select([
+        'p."id" AS "paymentId"',
+        'partner."name" AS "partnerName"',
+        'partner."code" AS "partnerCode"',
+        'partner."email" AS "partnerEmail"',
+        'partner."payoutDetails" AS "payoutDetails"',
+        'p."amount" AS "amount"',
+        'p."status" AS "status"',
+        'p."periodStart" AS "periodStart"',
+        'p."periodEnd" AS "periodEnd"',
+        'p."reference" AS "reference"',
+        'p."notes" AS "notes"',
+        'p."paidAt" AS "paidAt"',
+        'p."createdAt" AS "createdAt"',
+      ])
+      .where('p."userId" = :userId', { userId })
+      .orderBy('p."createdAt"', 'DESC');
+
+    if (query.partnerId) {
+      qb.andWhere('p."partnerId" = :partnerId', { partnerId: query.partnerId });
+    }
+    if (query.status) {
+      qb.andWhere('p."status" = :status', { status: query.status });
+    }
+    if (query.dateFrom) {
+      qb.andWhere('p."createdAt" >= :dateFrom', {
+        dateFrom: new Date(query.dateFrom),
+      });
+    }
+    if (query.dateTo) {
+      qb.andWhere('p."createdAt" <= :dateTo', {
+        dateTo: new Date(query.dateTo),
+      });
+    }
+
+    const rows = await qb.getRawMany<{
+      paymentId: string;
+      partnerName: string;
+      partnerCode: string;
+      partnerEmail: string | null;
+      payoutDetails: Record<string, unknown> | null;
+      amount: string;
+      status: string;
+      periodStart: string | null;
+      periodEnd: string | null;
+      reference: string | null;
+      notes: string | null;
+      paidAt: Date | null;
+      createdAt: Date;
+    }>();
+
+    const header = [
+      'payment_id',
+      'partner_name',
+      'partner_code',
+      'partner_email',
+      'amount',
+      'status',
+      'period_start',
+      'period_end',
+      'reference',
+      'notes',
+      'payout_details',
+      'paid_at',
+      'created_at',
+    ];
+
+    const lines = [header.map(csvEscape).join(',')];
+    for (const r of rows) {
+      lines.push(
+        [
+          r.paymentId,
+          r.partnerName,
+          r.partnerCode,
+          r.partnerEmail ?? '',
+          r.amount,
+          r.status,
+          r.periodStart ?? '',
+          r.periodEnd ?? '',
+          r.reference ?? '',
+          r.notes ?? '',
+          r.payoutDetails ? JSON.stringify(r.payoutDetails) : '',
+          r.paidAt ? new Date(r.paidAt).toISOString() : '',
+          new Date(r.createdAt).toISOString(),
+        ]
+          .map(csvEscape)
+          .join(','),
+      );
+    }
+    return lines.join('\n');
+  }
+
+  /**
+   * Create one `pending` payment per eligible partner. Eligibility = partner
+   * is active, belongs to the tenant, optionally in `partnerIds`, and current
+   * balance (totalAccrued − totalPaid) > minAmount.
+   *
+   * Not transactional on purpose: partial failure means the caller still sees
+   * whatever was created and can fix up the rest. The worst case (double-run)
+   * is mitigated by callers using distinct `reference` tags per batch.
+   */
+  async createBatch(
+    userId: string,
+    dto: CreateBatchPaymentsDto,
+  ): Promise<BatchPaymentsResultDto> {
+    const minAmount = dto.minAmount ?? 0;
+
+    // Query every partner's balance in a single shot so we don't N+1 when
+    // batching hundreds of partners. Only partners with a row in either
+    // conversion_events or payments appear; partners with no activity can't
+    // have a positive balance anyway.
+    const partnerFilter = dto.partnerIds && dto.partnerIds.length > 0;
+    const qb = this.paymentsRepository.manager
+      .createQueryBuilder(PartnerEntity, 'partner')
+      .select('partner."id"', 'partnerId')
+      .addSelect(
+        `COALESCE((
+            SELECT SUM(ce."accrualAmount"::numeric)
+            FROM conversion_events ce
+            WHERE ce."partnerId" = partner."id"
+              AND ce."userId" = partner."userId"
+          ), 0)::text`,
+        'totalAccrued',
+      )
+      .addSelect(
+        `COALESCE((
+            SELECT SUM(CASE WHEN pay."status" = 'completed' THEN pay."amount"::numeric ELSE 0 END)
+            FROM payments pay
+            WHERE pay."partnerId" = partner."id"
+              AND pay."userId" = partner."userId"
+          ), 0)::text`,
+        'totalPaid',
+      )
+      .where('partner."userId" = :userId', { userId })
+      .andWhere('partner."isActive" = true');
+
+    if (partnerFilter) {
+      qb.andWhere('partner."id" IN (:...partnerIds)', {
+        partnerIds: dto.partnerIds,
+      });
+    }
+
+    const rows = await qb.getRawMany<{
+      partnerId: string;
+      totalAccrued: string;
+      totalPaid: string;
+    }>();
+
+    const toCreate: PaymentEntity[] = [];
+    let skipped = 0;
+    for (const row of rows) {
+      const balance = parseFloat(row.totalAccrued) - parseFloat(row.totalPaid);
+      if (balance <= minAmount) {
+        skipped++;
+        continue;
+      }
+      toCreate.push(
+        this.paymentsRepository.create({
+          userId,
+          partnerId: row.partnerId,
+          amount: balance.toFixed(6),
+          status: 'pending',
+          reference: dto.reference ?? null,
+          periodStart: dto.periodStart,
+          periodEnd: dto.periodEnd,
+        }),
+      );
+    }
+
+    const saved =
+      toCreate.length > 0
+        ? await this.paymentsRepository.save(toCreate)
+        : [];
+    const totalAmount = saved
+      .reduce((acc, p) => acc + parseFloat(p.amount), 0)
+      .toFixed(6);
+
+    return {
+      created: saved.length,
+      totalAmount,
+      skippedPartners: skipped,
+      paymentIds: saved.map((p) => p.id),
+    };
   }
 
   async getPartnerBalance(

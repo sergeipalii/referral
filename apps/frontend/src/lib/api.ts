@@ -290,6 +290,64 @@ class ApiClient {
     return this.post<Payment>('/payments', data);
   }
 
+  createBatchPayments(data: {
+    periodStart: string;
+    periodEnd: string;
+    partnerIds?: string[];
+    minAmount?: number;
+    reference?: string;
+  }) {
+    return this.post<import('./types').BatchPaymentsResult>(
+      '/payments/batch',
+      data,
+    );
+  }
+
+  /**
+   * Download payments CSV using the same filters as the list view. Returns
+   * the raw text — the caller decides how to save it (e.g. via saveAs).
+   */
+  async exportPaymentsCsv(params?: {
+    partnerId?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<string> {
+    const q = new URLSearchParams();
+    if (params?.partnerId) q.set('partnerId', params.partnerId);
+    if (params?.status) q.set('status', params.status);
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+
+    // Custom path because the shared `request<T>` assumes JSON. The tracking
+    // / auth flow is identical (Bearer + refresh-on-401); we just need text
+    // out instead of JSON.
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+    let res = await fetch(`${API_BASE}/payments/export?${q}`, { headers });
+    if (res.status === 401 && this.refreshToken) {
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.doRefresh().finally(() => {
+          this.refreshPromise = null;
+        });
+      }
+      await this.refreshPromise;
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+      res = await fetch(`${API_BASE}/payments/export?${q}`, { headers });
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(
+        res.status,
+        body.message || res.statusText,
+        body,
+      );
+    }
+    return res.text();
+  }
+
   updatePayment(
     id: string,
     data: Partial<{

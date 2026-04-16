@@ -333,6 +333,25 @@ function PartnerDetailsModal({
               email={partner.email}
             />
           </div>
+          {partner.payoutDetails &&
+          Object.keys(partner.payoutDetails).length > 0 ? (
+            <div>
+              <div className="text-xs font-medium text-gray-500 mb-1">
+                Payout details
+              </div>
+              <pre className="bg-gray-50 border rounded p-2 text-xs text-gray-900 whitespace-pre-wrap break-all">
+                {JSON.stringify(partner.payoutDetails, null, 2)}
+              </pre>
+              <p className="text-xs text-gray-500 mt-1">
+                Set by the partner in their portal settings.
+              </p>
+            </div>
+          ) : (
+            <DetailRow
+              label="Payout details"
+              value="— (partner hasn't provided yet)"
+            />
+          )}
           {partner.lastLoginAt && (
             <DetailRow
               label="Last sign-in"

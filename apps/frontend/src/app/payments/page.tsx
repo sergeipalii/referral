@@ -17,7 +17,25 @@ import type {
   Partner,
   PartnerBalance,
   PaginatedResponse,
+  BatchPaymentsResult,
 } from '@/lib/types';
+
+/**
+ * Trigger a file download for the given text blob in the browser. Used for
+ * CSV export — keeps the click-initiated download behaviour but flows through
+ * an authenticated fetch first.
+ */
+function saveTextAs(text: string, filename: string, type = 'text/csv') {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 const statusVariant = {
   pending: 'yellow' as const,
@@ -33,6 +51,8 @@ export default function PaymentsPage() {
   const [filterPartner, setFilterPartner] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -71,11 +91,39 @@ export default function PaymentsPage() {
     load();
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const csv = await api.exportPaymentsCsv({
+        partnerId: filterPartner || undefined,
+        status: filterStatus || undefined,
+      });
+      const today = new Date().toISOString().slice(0, 10);
+      saveTextAs(csv, `payments-${today}.csv`);
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <DashboardShell>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold">Payments</h1>
-        <Button onClick={() => setModalOpen(true)}>Record Payment</Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={handleExport}
+            loading={exporting}
+          >
+            Export CSV
+          </Button>
+          <Button variant="secondary" onClick={() => setBatchOpen(true)}>
+            Generate pending payouts
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>Record Payment</Button>
+        </div>
       </div>
 
       {/* Balance cards */}
@@ -222,7 +270,168 @@ export default function PaymentsPage() {
         error={error}
         setError={setError}
       />
+
+      <BatchPayoutsModal
+        open={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        onSaved={() => {
+          setBatchOpen(false);
+          load();
+        }}
+      />
     </DashboardShell>
+  );
+}
+
+/**
+ * "Generate pending payouts" — creates one pending payment per partner with
+ * positive balance for the given period. Owner then reviews / exports / marks
+ * completed as each is actually paid out.
+ */
+function BatchPayoutsModal({
+  open,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [minAmount, setMinAmount] = useState('0');
+  const [reference, setReference] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<BatchPaymentsResult | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      // Default to previous month
+      const now = new Date();
+      const firstOfThisMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      );
+      const firstOfLastMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1,
+      );
+      const lastOfLastMonth = new Date(
+        firstOfThisMonth.getTime() - 24 * 60 * 60 * 1000,
+      );
+      setPeriodStart(firstOfLastMonth.toISOString().slice(0, 10));
+      setPeriodEnd(lastOfLastMonth.toISOString().slice(0, 10));
+      setMinAmount('0');
+      setReference('');
+      setError('');
+      setResult(null);
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.createBatchPayments({
+        periodStart,
+        periodEnd,
+        minAmount: Number(minAmount) || 0,
+        reference: reference || undefined,
+      });
+      setResult(res);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Batch failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={result ? onSaved : onClose}
+      title={result ? 'Pending payouts created' : 'Generate pending payouts'}
+    >
+      {result ? (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-green-50 border border-green-200 p-4 space-y-1 text-sm text-green-800">
+            <p>
+              <strong>{result.created}</strong> pending payment
+              {result.created === 1 ? '' : 's'} created, totalling{' '}
+              <strong>{Number(result.totalAmount).toFixed(2)}</strong>.
+            </p>
+            {result.skippedPartners > 0 && (
+              <p className="text-green-700">
+                Skipped {result.skippedPartners} partner
+                {result.skippedPartners === 1 ? '' : 's'} with insufficient
+                balance.
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            Review them in the list below, export a CSV for your bank/finance
+            team, and mark them <code>completed</code> once paid.
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={onSaved}>Done</Button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+          <p className="text-xs text-gray-500">
+            One pending payment per active partner with positive balance. The
+            period fields only tag the payment records — the amount is each
+            partner&apos;s full unpaid balance right now.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Period start"
+              type="date"
+              required
+              value={periodStart}
+              onChange={(e) => setPeriodStart(e.target.value)}
+            />
+            <Input
+              label="Period end"
+              type="date"
+              required
+              value={periodEnd}
+              onChange={(e) => setPeriodEnd(e.target.value)}
+            />
+          </div>
+          <Input
+            label="Skip partners below"
+            type="number"
+            value={minAmount}
+            onChange={(e) => setMinAmount(e.target.value)}
+            placeholder="e.g. 10 — ignore balances below this amount"
+          />
+          <Input
+            label="Reference (optional)"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="e.g. Q1-2026-batch"
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={loading}>
+              Generate
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }
 

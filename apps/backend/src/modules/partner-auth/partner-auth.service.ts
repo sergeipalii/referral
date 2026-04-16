@@ -15,6 +15,7 @@ import {
   PartnerAuthTokensDto,
   PartnerInvitationCreatedDto,
   PartnerSelfDto,
+  UpdatePartnerSelfDto,
 } from './dto/partner-auth.dto';
 
 /** JWT payload shape for partner tokens. */
@@ -200,6 +201,34 @@ export class PartnerAuthService {
     if (!partner) {
       throw new NotFoundException('Partner not found');
     }
+    return this.toSelfDto(partner);
+  }
+
+  /**
+   * Partner-initiated update of their own profile. The set of editable fields
+   * is intentionally narrow — name/code/isActive stay owner-managed so
+   * partners can't rebrand or reactivate themselves without approval.
+   */
+  async updateSelf(
+    partnerId: string,
+    ownerUserId: string,
+    dto: UpdatePartnerSelfDto,
+  ): Promise<PartnerSelfDto> {
+    const partner = await this.partnersRepository.findOne({
+      where: { id: partnerId, userId: ownerUserId },
+    });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+    if (dto.description !== undefined) partner.description = dto.description;
+    if (dto.payoutDetails !== undefined) {
+      partner.payoutDetails = dto.payoutDetails;
+    }
+    const saved = await this.partnersRepository.save(partner);
+    return this.toSelfDto(saved);
+  }
+
+  private toSelfDto(partner: PartnerEntity): PartnerSelfDto {
     return {
       id: partner.id,
       name: partner.name,
@@ -207,6 +236,7 @@ export class PartnerAuthService {
       description: partner.description,
       email: partner.email ?? '',
       isActive: partner.isActive,
+      payoutDetails: partner.payoutDetails,
       lastLoginAt: partner.lastLoginAt,
       createdAt: partner.createdAt,
     };

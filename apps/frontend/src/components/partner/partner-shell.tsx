@@ -10,6 +10,7 @@ const navItems = [
   { href: '/partner', label: 'Dashboard', icon: 'D', exact: true },
   { href: '/partner/conversions', label: 'Conversions', icon: 'C' },
   { href: '/partner/payments', label: 'Payments', icon: '$' },
+  { href: '/partner/settings', label: 'Settings', icon: 'S' },
 ];
 
 /**

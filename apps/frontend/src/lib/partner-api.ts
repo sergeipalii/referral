@@ -122,6 +122,16 @@ class PartnerApiClient {
     return this.request<PartnerSelf>('/partner-portal/self');
   }
 
+  updateSelf(data: {
+    description?: string;
+    payoutDetails?: Record<string, unknown> | null;
+  }) {
+    return this.request<PartnerSelf>('/partner-portal/self', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   getDashboard() {
     return this.request<PartnerDashboard>('/partner-portal/dashboard');
   }

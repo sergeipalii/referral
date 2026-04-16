@@ -20,6 +20,12 @@ export class PartnerDto {
   @ApiPropertyOptional()
   metadata: Record<string, any> | null;
 
+  @ApiPropertyOptional({
+    description:
+      'Partner-provided payout rail details (set by the partner in their portal)',
+  })
+  payoutDetails: Record<string, any> | null;
+
   @ApiProperty()
   isActive: boolean;
 
@@ -62,6 +68,7 @@ export class PartnerDto {
     dto.name = entity.name;
     dto.description = entity.description;
     dto.metadata = entity.metadata;
+    dto.payoutDetails = entity.payoutDetails;
     dto.isActive = entity.isActive;
     dto.email = entity.email;
     dto.hasPassword = entity.hashedPassword !== null;

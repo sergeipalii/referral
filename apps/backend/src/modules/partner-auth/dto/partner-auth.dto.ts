@@ -2,8 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsNotEmpty,
+  IsObject,
+  IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
@@ -88,9 +91,33 @@ export class PartnerSelfDto {
   @ApiProperty()
   isActive: boolean;
 
+  @ApiPropertyOptional({ description: 'Partner-supplied payout rail details' })
+  payoutDetails: Record<string, any> | null;
+
   @ApiPropertyOptional()
   lastLoginAt: Date | null;
 
   @ApiProperty()
   createdAt: Date;
+}
+
+export class UpdatePartnerSelfDto {
+  @ApiPropertyOptional({ description: 'Self-description shown to the owner' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Payout rail details. Free-form JSON — typical shape: { method, details, notes }',
+    example: {
+      method: 'bank',
+      details: 'IBAN DE89 3704 0044 0532 0130 00',
+      notes: 'Commerzbank Frankfurt',
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  payoutDetails?: Record<string, any> | null;
 }

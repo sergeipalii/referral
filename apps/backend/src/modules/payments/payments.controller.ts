@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Post,
   Patch,
   Delete,
@@ -9,11 +10,14 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiBearerAuth,
   ApiOperation,
+  ApiProduces,
   ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,6 +26,11 @@ import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/requests/create-payment.dto';
 import { UpdatePaymentDto } from './dto/requests/update-payment.dto';
 import { PaymentsQueryDto } from './dto/requests/payments-query.dto';
+import { PaymentsExportQueryDto } from './dto/requests/payments-export-query.dto';
+import {
+  BatchPaymentsResultDto,
+  CreateBatchPaymentsDto,
+} from './dto/requests/create-batch-payments.dto';
 import { PaymentDto } from './dto/responses/payment.dto';
 import { PartnerBalanceDto } from './dto/responses/partner-balance.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination-meta.dto';
@@ -52,6 +61,40 @@ export class PaymentsController {
     @Param('partnerId', ParseUUIDPipe) partnerId: string,
   ): Promise<PartnerBalanceDto> {
     return this.paymentsService.getPartnerBalance(userId, partnerId);
+  }
+
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @ApiOperation({
+    summary:
+      'CSV export of payments joined with partner details (for finance/bank portals)',
+  })
+  @ApiProduces('text/csv')
+  async exportCsv(
+    @GetUser('id') userId: string,
+    @Query() query: PaymentsExportQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<string> {
+    const csv = await this.paymentsService.exportCsv(userId, query);
+    const filename = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+    return csv;
+  }
+
+  @Post('batch')
+  @ApiOperation({
+    summary:
+      'Create pending payments in bulk (one per eligible partner at their current balance)',
+  })
+  @ApiResponse({ status: 201, type: BatchPaymentsResultDto })
+  createBatch(
+    @GetUser('id') userId: string,
+    @Body() dto: CreateBatchPaymentsDto,
+  ): Promise<BatchPaymentsResultDto> {
+    return this.paymentsService.createBatch(userId, dto);
   }
 
   @Get(':id')

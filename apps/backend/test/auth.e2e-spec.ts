@@ -158,9 +158,7 @@ describe('Auth (e2e)', () => {
     });
 
     it('should reject unauthenticated requests', async () => {
-      await request(server())
-        .get('/api/auth/api-keys')
-        .expect(401);
+      await request(server()).get('/api/auth/api-keys').expect(401);
     });
   });
 });

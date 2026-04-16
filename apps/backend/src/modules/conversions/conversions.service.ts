@@ -42,7 +42,10 @@ export class ConversionsService {
    * HMAC-authenticated `/conversions/track` endpoint and the direct MMP
    * webhook endpoints.
    */
-  async track(userId: string, dto: TrackConversionDto): Promise<TrackResultDto> {
+  async track(
+    userId: string,
+    dto: TrackConversionDto,
+  ): Promise<TrackResultDto> {
     if (dto.idempotencyKey) {
       const cached = await this.idempotencyService.check(
         userId,

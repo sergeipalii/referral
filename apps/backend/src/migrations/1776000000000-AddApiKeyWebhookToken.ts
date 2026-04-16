@@ -29,9 +29,7 @@ export class AddApiKeyWebhookToken1776000000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "UQ_api_keys_webhookToken"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_api_keys_webhookToken"`);
     await queryRunner.query(
       `ALTER TABLE "api_keys" DROP COLUMN IF EXISTS "webhookToken"`,
     );

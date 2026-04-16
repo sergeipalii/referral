@@ -92,7 +92,10 @@ describe('Conversions Track (e2e)', () => {
       await request(server())
         .post('/api/conversions/track')
         .set('X-API-Key', apiKey.key)
-        .set('X-Signature', 'sha256=0000000000000000000000000000000000000000000000000000000000000000')
+        .set(
+          'X-Signature',
+          'sha256=0000000000000000000000000000000000000000000000000000000000000000',
+        )
         .set('Content-Type', 'application/json')
         .send(body)
         .expect(401);

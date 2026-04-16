@@ -8,15 +8,6 @@ import {
 } from 'class-validator';
 
 export class CreatePartnerDto {
-  @ApiProperty({
-    example: 'ACME_2024',
-    description: 'Unique referral code (used as UTM value)',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(128)
-  code: string;
-
   @ApiProperty({ example: 'Acme Corp', description: 'Partner display name' })
   @IsString()
   @IsNotEmpty()

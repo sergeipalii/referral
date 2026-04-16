@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
 import { PartnerEntity } from './entities/partner.entity';
 import { CreatePartnerDto } from './dto/requests/create-partner.dto';
 import { UpdatePartnerDto } from './dto/requests/update-partner.dto';
@@ -71,13 +72,8 @@ export class PartnersService {
   }
 
   async create(userId: string, dto: CreatePartnerDto): Promise<PartnerDto> {
-    const existing = await this.findByCode(userId, dto.code);
-    if (existing) {
-      throw new ConflictException(
-        `Partner with code "${dto.code}" already exists`,
-      );
-    }
-    const partner = this.partnersRepository.create({ ...dto, userId });
+    const code = await this.generateUniqueCode(userId);
+    const partner = this.partnersRepository.create({ ...dto, code, userId });
     const saved = await this.partnersRepository.save(partner);
     return PartnerDto.fromEntity(saved);
   }
@@ -88,19 +84,24 @@ export class PartnersService {
     dto: UpdatePartnerDto,
   ): Promise<PartnerDto> {
     const partner = await this.findOneOrFail(userId, id);
-
-    if (dto.code && dto.code !== partner.code) {
-      const existing = await this.findByCode(userId, dto.code);
-      if (existing) {
-        throw new ConflictException(
-          `Partner with code "${dto.code}" already exists`,
-        );
-      }
-    }
-
     Object.assign(partner, dto);
     const saved = await this.partnersRepository.save(partner);
     return PartnerDto.fromEntity(saved);
+  }
+
+  /**
+   * Generate a short, unique-per-tenant partner code.
+   * 4 random bytes → 8 hex chars (~4.3B combinations per user) — plenty for
+   * uniqueness without being cryptographically sensitive. Retries on the rare
+   * collision.
+   */
+  private async generateUniqueCode(userId: string): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = randomBytes(4).toString('hex');
+      const existing = await this.findByCode(userId, code);
+      if (!existing) return code;
+    }
+    throw new ConflictException('Failed to generate a unique partner code');
   }
 
   async deactivate(userId: string, id: string): Promise<StandardResponseDto> {

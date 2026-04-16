@@ -9,13 +9,6 @@ import {
 } from 'class-validator';
 
 export class UpdatePartnerDto {
-  @ApiPropertyOptional({ example: 'ACME_2025' })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(128)
-  code?: string;
-
   @ApiPropertyOptional({ example: 'Acme Corp Updated' })
   @IsOptional()
   @IsString()

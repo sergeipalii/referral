@@ -16,7 +16,8 @@ import type { Partner, PaginatedResponse } from '@/lib/types';
 export default function PartnersPage() {
   const [data, setData] = useState<PaginatedResponse<Partner> | null>(null);
   const [page, setPage] = useState(1);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [viewing, setViewing] = useState<Partner | null>(null);
   const [editing, setEditing] = useState<Partner | null>(null);
   const [error, setError] = useState('');
 
@@ -30,12 +31,14 @@ export default function PartnersPage() {
   }, [load]);
 
   const openCreate = () => {
-    setEditing(null);
-    setModalOpen(true);
+    setCreateOpen(true);
+  };
+  const openView = (p: Partner) => {
+    setViewing(p);
   };
   const openEdit = (p: Partner) => {
+    setViewing(null);
     setEditing(p);
-    setModalOpen(true);
   };
 
   const handleDelete = async (p: Partner) => {
@@ -68,7 +71,13 @@ export default function PartnersPage() {
                 {data.data.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <Td>
-                      <div className="font-medium">{p.name}</div>
+                      <button
+                        type="button"
+                        onClick={() => openView(p)}
+                        className="font-medium text-left hover:text-blue-600"
+                      >
+                        {p.name}
+                      </button>
                       {p.description && (
                         <div className="text-xs text-gray-500 mt-0.5">
                           {p.description}
@@ -76,9 +85,7 @@ export default function PartnersPage() {
                       )}
                     </Td>
                     <Td>
-                      <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
-                        {p.code}
-                      </code>
+                      <CopyableCode code={p.code} />
                     </Td>
                     <Td>
                       <Badge variant={p.isActive ? 'green' : 'gray'}>
@@ -88,6 +95,13 @@ export default function PartnersPage() {
                     <Td>{new Date(p.createdAt).toLocaleDateString()}</Td>
                     <Td className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openView(p)}
+                        >
+                          View
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -121,22 +135,124 @@ export default function PartnersPage() {
         ) : null}
       </Card>
 
-      <PartnerModal
-        open={modalOpen}
+      <PartnerFormModal
+        open={createOpen || editing !== null}
         partner={editing}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          setEditing(null);
+        }}
         onSaved={() => {
-          setModalOpen(false);
+          setCreateOpen(false);
+          setEditing(null);
           load();
         }}
         error={error}
         setError={setError}
       />
+
+      <PartnerDetailsModal
+        partner={viewing}
+        onClose={() => setViewing(null)}
+        onEdit={openEdit}
+      />
     </DashboardShell>
   );
 }
 
-function PartnerModal({
+function CopyableCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard may be unavailable (e.g. insecure context) — fail silently
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title="Click to copy"
+      className="inline-flex items-center gap-1.5 group"
+    >
+      <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded group-hover:bg-gray-200">
+        {code}
+      </code>
+      <span className="text-xs text-gray-400 group-hover:text-gray-600">
+        {copied ? 'Copied!' : 'Copy'}
+      </span>
+    </button>
+  );
+}
+
+function PartnerDetailsModal({
+  partner,
+  onClose,
+  onEdit,
+}: {
+  partner: Partner | null;
+  onClose: () => void;
+  onEdit: (p: Partner) => void;
+}) {
+  return (
+    <Modal
+      open={partner !== null}
+      onClose={onClose}
+      title={partner ? `Partner: ${partner.name}` : ''}
+    >
+      {partner && (
+        <div className="space-y-4">
+          <DetailRow label="Name" value={partner.name} />
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Code</div>
+            <CopyableCode code={partner.code} />
+          </div>
+          <DetailRow
+            label="Description"
+            value={partner.description || '—'}
+          />
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Status</div>
+            <Badge variant={partner.isActive ? 'green' : 'gray'}>
+              {partner.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+          </div>
+          <DetailRow
+            label="Created"
+            value={new Date(partner.createdAt).toLocaleString()}
+          />
+          <DetailRow
+            label="Updated"
+            value={new Date(partner.updatedAt).toLocaleString()}
+          />
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={onClose}>
+              Close
+            </Button>
+            <Button onClick={() => onEdit(partner)}>Edit</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs font-medium text-gray-500 mb-1">{label}</div>
+      <div className="text-sm text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+function PartnerFormModal({
   open,
   partner,
   onClose,
@@ -152,14 +268,12 @@ function PartnerModal({
   setError: (e: string) => void;
 }) {
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(partner?.name || '');
-      setCode(partner?.code || '');
       setDescription(partner?.description || '');
       setError('');
     }
@@ -171,9 +285,9 @@ function PartnerModal({
     setError('');
     try {
       if (partner) {
-        await api.updatePartner(partner.id, { name, code, description });
+        await api.updatePartner(partner.id, { name, description });
       } else {
-        await api.createPartner({ name, code, description });
+        await api.createPartner({ name, description });
       }
       onSaved();
     } catch (err) {
@@ -202,17 +316,18 @@ function PartnerModal({
           onChange={(e) => setName(e.target.value)}
         />
         <Input
-          label="Code (UTM value)"
-          required
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="e.g. partner-123"
-        />
-        <Input
           label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+        {partner && (
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">
+              Code (auto-generated, not editable)
+            </div>
+            <CopyableCode code={partner.code} />
+          </div>
+        )}
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel

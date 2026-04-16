@@ -152,14 +152,13 @@ class ApiClient {
     return this.get<Partner>(`/partners/${id}`);
   }
 
-  createPartner(data: { code: string; name: string; description?: string }) {
+  createPartner(data: { name: string; description?: string }) {
     return this.post<Partner>('/partners', data);
   }
 
   updatePartner(
     id: string,
     data: Partial<{
-      code: string;
       name: string;
       description: string;
       isActive: boolean;

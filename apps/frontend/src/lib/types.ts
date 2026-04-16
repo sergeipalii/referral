@@ -13,6 +13,10 @@ export interface Partner {
   description: string | null;
   metadata: Record<string, unknown> | null;
   isActive: boolean;
+  email: string | null;
+  hasPassword: boolean;
+  invitationExpiresAt: string | null;
+  lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -114,4 +118,30 @@ export interface PaginatedResponse<T> {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
+}
+
+// ─── Partner portal ─────────────────────────────────────────────────────
+
+export interface PartnerAuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface PartnerSelf {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  email: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+/** Response from POST /partner-auth/invitations — shown to the owner once. */
+export interface PartnerInvitationCreated {
+  token: string;
+  expiresAt: string;
+  partnerId: string;
+  email: string;
 }

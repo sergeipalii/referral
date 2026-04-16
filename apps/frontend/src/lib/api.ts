@@ -10,6 +10,7 @@ import type {
   ApiKey,
   ApiKeyCreated,
   PaginatedResponse,
+  PartnerInvitationCreated,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -169,6 +170,18 @@ class ApiClient {
 
   deletePartner(id: string) {
     return this.delete(`/partners/${id}`);
+  }
+
+  // Partner invitations (owner side)
+  createPartnerInvitation(partnerId: string, email: string) {
+    return this.post<PartnerInvitationCreated>('/partner-auth/invitations', {
+      partnerId,
+      email,
+    });
+  }
+
+  revokePartnerInvitation(partnerId: string) {
+    return this.delete(`/partner-auth/invitations/${partnerId}`);
   }
 
   // Accrual Rules

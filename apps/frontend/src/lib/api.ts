@@ -11,6 +11,7 @@ import type {
   ApiKeyCreated,
   PaginatedResponse,
   PartnerInvitationCreated,
+  SubscriptionView,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -89,6 +90,23 @@ class ApiClient {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
+      // Broadcast plan-limit errors (402) so the global UpgradeModalHost can
+      // pop the plan-aware CTA. Each call site doesn't need to wire it up.
+      // Error is still thrown so local catches can short-circuit their own
+      // recovery if they want.
+      if (res.status === 402 && typeof body === 'object' && body !== null) {
+        const planBody = body as { error?: string };
+        if (planBody.error === 'plan_limit') {
+          // Lazy import keeps ApiClient standalone (no React at module load).
+          import('@/components/billing/upgrade-modal')
+            .then(({ emitPlanLimit }) =>
+              emitPlanLimit(body as Parameters<typeof emitPlanLimit>[0]),
+            )
+            .catch(() => {
+              /* best-effort — fall through to thrown error below */
+            });
+        }
+      }
       throw new ApiError(res.status, body.message || res.statusText, body);
     }
 
@@ -382,6 +400,38 @@ class ApiClient {
   deleteApiKey(id: string) {
     return this.delete(`/auth/api-keys/${id}`);
   }
+
+  // Billing
+  getSubscription() {
+    return this.get<SubscriptionView>('/billing/subscription');
+  }
+
+  createCheckout(planKey: 'pro' | 'business') {
+    return this.post<{ url: string }>('/billing/checkout', { planKey });
+  }
+
+  createPortal() {
+    return this.post<{ url: string }>('/billing/portal');
+  }
+
+  getInvoices() {
+    return this.get<InvoiceView[]>('/billing/invoices');
+  }
+}
+
+export interface InvoiceView {
+  id: string;
+  stripeInvoiceId: string;
+  amountDue: string;
+  amountPaid: string;
+  currency: string;
+  status: string;
+  hostedInvoiceUrl: string | null;
+  invoicePdfUrl: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  paidAt: string | null;
+  createdAt: string;
 }
 
 export class ApiError extends Error {

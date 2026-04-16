@@ -1,7 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
-import { AccrualRuleEntity } from './entities/accrual-rule.entity';
+import {
+  AccrualRuleEntity,
+  isRecurringRuleType,
+  type RuleType,
+} from './entities/accrual-rule.entity';
+import { BillingService } from '../billing/billing.service';
+import { hasCapability, smallestPlanWith } from '../billing/plans';
 import { CreateAccrualRuleDto } from './dto/requests/create-accrual-rule.dto';
 import { UpdateAccrualRuleDto } from './dto/requests/update-accrual-rule.dto';
 import { AccrualRulesQueryDto } from './dto/requests/accrual-rules-query.dto';
@@ -17,7 +30,39 @@ export class AccrualRulesService {
   constructor(
     @InjectRepository(AccrualRuleEntity)
     private readonly rulesRepository: Repository<AccrualRuleEntity>,
+    // forwardRef: BillingModule consumes accrual-rules data indirectly (via
+    // ConversionsModule for accrual computation); we consume BillingService
+    // here to gate recurring rule creation. Either direction would trigger
+    // the Nest cycle detector without forwardRef on this side.
+    @Inject(forwardRef(() => BillingService))
+    private readonly billingService: BillingService,
   ) {}
+
+  /**
+   * Recurring rules can only be created/updated on plans that include the
+   * `recurringRules` capability. We can't hang a static decorator on the
+   * route — the check is input-dependent — so do it here before writing.
+   */
+  private async assertPlanAllowsRuleType(
+    userId: string,
+    ruleType: RuleType | undefined,
+  ): Promise<void> {
+    if (!ruleType || !isRecurringRuleType(ruleType)) return;
+    const sub = await this.billingService.getSubscriptionEntity(userId);
+    if (!hasCapability(sub.planKey, 'recurringRules')) {
+      throw new HttpException(
+        {
+          error: 'plan_limit',
+          reason: 'capability',
+          capability: 'recurringRules',
+          currentPlan: sub.planKey,
+          requiredPlan: smallestPlanWith('recurringRules'),
+          message: 'Recurring rules require a plan with recurringRules enabled',
+        },
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+  }
 
   async findAll(
     userId: string,
@@ -82,6 +127,7 @@ export class AccrualRulesService {
     userId: string,
     dto: CreateAccrualRuleDto,
   ): Promise<AccrualRuleDto> {
+    await this.assertPlanAllowsRuleType(userId, dto.ruleType);
     const rule = this.rulesRepository.create({
       ...dto,
       userId,
@@ -98,6 +144,10 @@ export class AccrualRulesService {
     dto: UpdateAccrualRuleDto,
   ): Promise<AccrualRuleDto> {
     const rule = await this.findOneOrFail(userId, id);
+    // Use the effective new ruleType if the client is changing it; otherwise
+    // re-check against the existing one (the plan could have been downgraded
+    // since the rule was created — don't silently re-save a now-gated rule).
+    await this.assertPlanAllowsRuleType(userId, dto.ruleType ?? rule.ruleType);
     Object.assign(rule, dto);
     const saved = await this.rulesRepository.save(rule);
     return AccrualRuleDto.fromEntity(saved);

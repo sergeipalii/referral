@@ -3,12 +3,15 @@ import {
   Injectable,
   UnauthorizedException,
   NotFoundException,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
+import { BillingService } from '../billing/billing.service';
 import { ApiKeyEntity } from './entities/api-key.entity';
 import { hashPassword, comparePasswords } from '../../utils/bcrypt.utils';
 import {
@@ -28,6 +31,11 @@ export class AuthService {
     private configService: ConfigService,
     @InjectRepository(ApiKeyEntity)
     private apiKeyRepository: Repository<ApiKeyEntity>,
+    // forwardRef because AuthModule imports BillingModule which re-imports
+    // AuthModule (for JwtAuthGuard on /billing endpoints). Nest resolves the
+    // cycle when providers mark it explicitly.
+    @Inject(forwardRef(() => BillingService))
+    private billingService: BillingService,
   ) {}
 
   // ─── Email/Password Auth ──────────────────────────────────────────────
@@ -39,6 +47,9 @@ export class AuthService {
       hashedPassword: hashed,
       name: dto.name,
     });
+    // Every new tenant starts on the free plan. Idempotent — calling twice
+    // returns the same row.
+    await this.billingService.createFreeSubscription(user.id);
     return this.generateTokens(user.id);
   }
 

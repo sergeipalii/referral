@@ -8,7 +8,9 @@ import {
   dbQuery,
   registerUser,
   request,
+  setTenantPlan,
   signBody,
+  userIdFromToken,
   TestApiKey,
   TestPartner,
   TestUser,
@@ -51,6 +53,9 @@ describe('Recurring commissions (e2e)', () => {
     app = await createTestApp();
     await cleanDatabase(app);
     user = await registerUser(app);
+    // Recurring rules require the `recurringRules` capability (Pro+). Bump
+    // to Business so partner/api-key caps don't get in the way either.
+    await setTenantPlan(app, userIdFromToken(user.accessToken), 'business');
     apiKey = await createApiKey(app, user.accessToken);
     partner = await createPartner(app, user.accessToken, 'Recurring Partner');
 

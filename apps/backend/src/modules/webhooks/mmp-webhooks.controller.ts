@@ -15,6 +15,7 @@ import {
 import { AuthService } from '../auth/auth.service';
 import { ConversionsService } from '../conversions/conversions.service';
 import { TrackConversionDto } from '../conversions/dto/requests/track-conversion.dto';
+import { BillingService } from '../billing/billing.service';
 import { AppsFlyerPostbackDto } from './dto/appsflyer-postback.dto';
 
 /**
@@ -37,6 +38,7 @@ export class MmpWebhooksController {
   constructor(
     private readonly authService: AuthService,
     private readonly conversionsService: ConversionsService,
+    private readonly billingService: BillingService,
   ) {}
 
   @Post('appsflyer/:webhookToken')
@@ -58,6 +60,18 @@ export class MmpWebhooksController {
       // Invalid token — still 200 so AppsFlyer doesn't retry, and we don't
       // leak token validity in the response body.
       this.logger.warn('AppsFlyer postback with invalid webhook token');
+      return { success: true };
+    }
+
+    // Plan gate — MMP webhook is a paid feature. Soft-reject: still 200 so
+    // AppsFlyer doesn't retry, just log so the owner can see "your plan
+    // doesn't include this" in support tickets.
+    try {
+      await this.billingService.assertCapability(userId, 'mmpWebhook');
+    } catch {
+      this.logger.warn(
+        `AppsFlyer postback dropped — tenant ${userId} does not have mmpWebhook capability`,
+      );
       return { success: true };
     }
 

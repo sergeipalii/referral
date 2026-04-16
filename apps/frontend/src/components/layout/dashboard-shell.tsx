@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Sidebar } from './sidebar';
 import { DashboardHeader } from './dashboard-header';
+import { PastDueBanner } from '@/components/billing/past-due-banner';
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="pl-56">
         <DashboardHeader />
+        <PastDueBanner />
         <main className="p-6">{children}</main>
       </div>
     </div>

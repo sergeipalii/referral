@@ -7,7 +7,9 @@ import {
   createTestApp,
   registerUser,
   request,
+  setTenantPlan,
   signBody,
+  userIdFromToken,
   TestApiKey,
   TestPartner,
   TestUser,
@@ -44,6 +46,9 @@ describe('Payments batch + CSV export (e2e)', () => {
     app = await createTestApp();
     await cleanDatabase(app);
     user = await registerUser(app);
+    // Business plan unlocks CSV export + batch payouts and lifts partner/
+    // api-key caps so we're only testing the feature under test.
+    await setTenantPlan(app, userIdFromToken(user.accessToken), 'business');
     apiKey = await createApiKey(app, user.accessToken);
 
     partnerA = await createPartner(app, user.accessToken, 'Partner A');

@@ -27,6 +27,8 @@ import {
   ApiKeyDto,
 } from './dto/auth.dto';
 import { StandardResponseDto } from '../../common/dto/standard-response.dto';
+import { PlanLimitGuard } from '../billing/guards/plan-limit.guard';
+import { RequireWithinLimit } from '../billing/decorators/plan-gate.decorators';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -60,7 +62,8 @@ export class AuthController {
   // ─── API Keys ─────────────────────────────────────────────────────────
 
   @Post('api-keys')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PlanLimitGuard)
+  @RequireWithinLimit('maxApiKeys')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create an API key (key is shown only once)' })
   @ApiResponse({ status: 201, type: ApiKeyCreatedDto })

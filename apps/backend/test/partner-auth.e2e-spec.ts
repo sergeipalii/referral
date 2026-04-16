@@ -7,6 +7,8 @@ import {
   onboardPartner,
   registerUser,
   request,
+  setTenantPlan,
+  userIdFromToken,
   TestUser,
 } from './helpers/test-app';
 
@@ -20,6 +22,9 @@ describe('Partner Auth (e2e)', () => {
     app = await createTestApp();
     await cleanDatabase(app);
     owner = await registerUser(app, { email: 'owner@example.com' });
+    // Test creates many partners — bump to Business so plan limits don't
+    // get in the way of exercising the invitation/auth flow.
+    await setTenantPlan(app, userIdFromToken(owner.accessToken), 'business');
   });
 
   afterAll(async () => {

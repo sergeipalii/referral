@@ -22,6 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { PlanLimitGuard } from '../billing/guards/plan-limit.guard';
+import { RequireCapability } from '../billing/decorators/plan-gate.decorators';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/requests/create-payment.dto';
 import { UpdatePaymentDto } from './dto/requests/update-payment.dto';
@@ -38,7 +40,7 @@ import { StandardResponseDto } from '../../common/dto/standard-response.dto';
 
 @ApiTags('payments')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PlanLimitGuard)
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
@@ -64,6 +66,7 @@ export class PaymentsController {
   }
 
   @Get('export')
+  @RequireCapability('csvExport')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @ApiOperation({
     summary:
@@ -85,6 +88,7 @@ export class PaymentsController {
   }
 
   @Post('batch')
+  @RequireCapability('batchPayouts')
   @ApiOperation({
     summary:
       'Create pending payments in bulk (one per eligible partner at their current balance)',

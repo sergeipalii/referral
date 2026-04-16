@@ -241,3 +241,35 @@ export async function dbQuery<T = unknown>(
   const dataSource = app.get(DataSource);
   return dataSource.query(sql, params) as Promise<T[]>;
 }
+
+// ─── Billing helpers ─────────────────────────────────────────────────────
+
+/**
+ * Move a test tenant onto a paid plan by hand. Most suites don't care about
+ * billing but do need to create more resources than the Free cap allows —
+ * this avoids mocking Stripe while letting the real PlanLimitGuard run.
+ */
+export async function setTenantPlan(
+  app: INestApplication,
+  userId: string,
+  planKey: 'free' | 'pro' | 'business',
+): Promise<void> {
+  await dbQuery(
+    app,
+    `UPDATE subscriptions SET "planKey" = $1, "status" = 'active' WHERE "userId" = $2`,
+    [planKey, userId],
+  );
+}
+
+/**
+ * Extract the tenant `userId` from a Bearer JWT without hitting the API.
+ * Used inside tests so we can call setTenantPlan without adding an admin
+ * endpoint just for the suite.
+ */
+export function userIdFromToken(accessToken: string): string {
+  const [, payloadB64] = accessToken.split('.');
+  const payload = JSON.parse(
+    Buffer.from(payloadB64, 'base64').toString('utf8'),
+  ) as { id: string };
+  return payload.id;
+}

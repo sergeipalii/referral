@@ -4,6 +4,8 @@ import {
   cleanDatabase,
   registerUser,
   request,
+  setTenantPlan,
+  userIdFromToken,
 } from './helpers/test-app';
 
 describe('Auth (e2e)', () => {
@@ -117,6 +119,9 @@ describe('Auth (e2e)', () => {
         email: 'apikey-test@example.com',
       });
       accessToken = user.accessToken;
+      // Need ≥2 api keys in the suite (Create + Revoke Me). Free plan caps
+      // at 1, so upgrade to Business for this block.
+      await setTenantPlan(app, userIdFromToken(accessToken), 'business');
     });
 
     it('should create an API key with signing secret', async () => {

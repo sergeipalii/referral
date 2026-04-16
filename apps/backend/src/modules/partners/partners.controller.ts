@@ -25,10 +25,12 @@ import { PartnersQueryDto } from './dto/requests/partners-query.dto';
 import { PartnerDto } from './dto/responses/partner.dto';
 import { PaginatedResponseDto } from '../../common/dto/pagination-meta.dto';
 import { StandardResponseDto } from '../../common/dto/standard-response.dto';
+import { PlanLimitGuard } from '../billing/guards/plan-limit.guard';
+import { RequireWithinLimit } from '../billing/decorators/plan-gate.decorators';
 
 @ApiTags('partners')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PlanLimitGuard)
 @Controller('partners')
 export class PartnersController {
   constructor(private readonly partnersService: PartnersService) {}
@@ -55,6 +57,7 @@ export class PartnersController {
   }
 
   @Post()
+  @RequireWithinLimit('maxPartners')
   @ApiOperation({ summary: 'Create partner' })
   @ApiResponse({ status: 201, type: PartnerDto })
   create(

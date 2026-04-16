@@ -135,6 +135,50 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+// ─── Billing ─────────────────────────────────────────────────────────────
+
+export type PlanKey = 'free' | 'pro' | 'business';
+export type SubscriptionStatus =
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'paused';
+
+export interface UsageBucket {
+  used: number;
+  /** null = unlimited */
+  limit: number | null;
+  exceeded: boolean;
+}
+
+export interface PlanFeatures {
+  mmpWebhook: boolean;
+  csvExport: boolean;
+  batchPayouts: boolean;
+  recurringRules: boolean;
+}
+
+export interface SubscriptionView {
+  plan: PlanKey;
+  planLabel: string;
+  status: SubscriptionStatus;
+  priceCents: number;
+  currency: string;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  features: PlanFeatures;
+  usage: {
+    partners: UsageBucket;
+    apiKeys: UsageBucket;
+    conversions: UsageBucket;
+    periodStart: string;
+    periodEnd: string;
+  };
+}
+
 // ─── Partner portal ─────────────────────────────────────────────────────
 
 export interface PartnerAuthTokens {

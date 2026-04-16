@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
+import { BillingModule } from '../billing/billing.module';
 import { ApiKeyEntity } from './entities/api-key.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -26,6 +27,11 @@ import { HmacAuthGuard } from './guards/hmac-auth.guard';
     }),
     TypeOrmModule.forFeature([ApiKeyEntity]),
     UsersModule,
+    // BillingModule depends on AuthModule (for JwtAuthGuard on /billing
+    // endpoints) and AuthModule depends on BillingService (to bootstrap a
+    // free subscription on register). Break the cycle with forwardRef on
+    // both sides.
+    forwardRef(() => BillingModule),
   ],
   providers: [
     AuthService,

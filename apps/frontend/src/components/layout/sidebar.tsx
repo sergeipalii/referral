@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { PlanBadge } from '@/components/billing/plan-badge';
 
 const navItems = [
   { href: '/partners', label: 'Partners', icon: 'P' },
@@ -10,6 +11,7 @@ const navItems = [
   { href: '/payments', label: 'Payments', icon: '$' },
   { href: '/integration', label: 'Integration', icon: 'I' },
   { href: '/api-keys', label: 'API Keys', icon: 'K' },
+  { href: '/billing', label: 'Billing', icon: 'B' },
 ];
 
 export function Sidebar() {
@@ -49,6 +51,9 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <div className="p-3 border-t border-gray-200">
+        <PlanBadge />
+      </div>
     </aside>
   );
 }

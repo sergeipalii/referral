@@ -105,3 +105,139 @@ export function signBody(body: string, signingSecret: string): string {
     .digest('hex');
   return `sha256=${sig}`;
 }
+
+// ─── Partner helpers ─────────────────────────────────────────────────────
+
+export interface TestPartner {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface TestPartnerAccount {
+  partnerId: string;
+  email: string;
+  password: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export async function createPartner(
+  app: INestApplication,
+  ownerAccessToken: string,
+  name = 'Test Partner',
+): Promise<TestPartner> {
+  const res = await request(app.getHttpServer())
+    .post('/api/partners')
+    .set('Authorization', `Bearer ${ownerAccessToken}`)
+    .send({ name })
+    .expect(201);
+  return {
+    id: res.body.id as string,
+    code: res.body.code as string,
+    name: res.body.name as string,
+  };
+}
+
+export async function invitePartner(
+  app: INestApplication,
+  ownerAccessToken: string,
+  partnerId: string,
+  email: string,
+): Promise<{ token: string; expiresAt: string }> {
+  const res = await request(app.getHttpServer())
+    .post('/api/partner-auth/invitations')
+    .set('Authorization', `Bearer ${ownerAccessToken}`)
+    .send({ partnerId, email })
+    .expect(201);
+  return {
+    token: res.body.token as string,
+    expiresAt: res.body.expiresAt as string,
+  };
+}
+
+/**
+ * Invite a partner, accept the invitation with a freshly-set password, and
+ * return everything the caller might want — the partner record, tokens, and
+ * credentials. One-stop helper for setting up a logged-in partner in tests.
+ */
+export async function onboardPartner(
+  app: INestApplication,
+  ownerAccessToken: string,
+  opts?: { name?: string; email?: string; password?: string },
+): Promise<{ partner: TestPartner; account: TestPartnerAccount }> {
+  const partner = await createPartner(
+    app,
+    ownerAccessToken,
+    opts?.name ?? 'Test Partner',
+  );
+  const email =
+    opts?.email ??
+    `partner-${Date.now()}-${partner.id.slice(0, 8)}@example.com`;
+  const password = opts?.password ?? 'PartnerPass123';
+
+  const { token } = await invitePartner(
+    app,
+    ownerAccessToken,
+    partner.id,
+    email,
+  );
+
+  const acceptRes = await request(app.getHttpServer())
+    .post('/api/partner-auth/accept-invite')
+    .send({ token, password })
+    .expect(201);
+
+  return {
+    partner,
+    account: {
+      partnerId: partner.id,
+      email,
+      password,
+      accessToken: acceptRes.body.accessToken as string,
+      refreshToken: acceptRes.body.refreshToken as string,
+    },
+  };
+}
+
+// ─── Accrual rule helper ─────────────────────────────────────────────────
+
+export async function createRule(
+  app: INestApplication,
+  ownerAccessToken: string,
+  rule: {
+    eventName: string;
+    ruleType:
+      | 'fixed'
+      | 'percentage'
+      | 'recurring_fixed'
+      | 'recurring_percentage';
+    amount: string;
+    partnerId?: string;
+    revenueProperty?: string;
+    recurrenceDurationMonths?: number;
+  },
+): Promise<{ id: string }> {
+  const res = await request(app.getHttpServer())
+    .post('/api/accrual-rules')
+    .set('Authorization', `Bearer ${ownerAccessToken}`)
+    .send(rule)
+    .expect(201);
+  return { id: res.body.id as string };
+}
+
+// ─── Raw SQL helper ──────────────────────────────────────────────────────
+
+/**
+ * Execute a raw query against the test DB. Useful for time-travel simulation
+ * (e.g. backdating user_attributions.firstConversionAt to test recurring
+ * windows expiring).
+ */
+export async function dbQuery<T = unknown>(
+  app: INestApplication,
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const dataSource = app.get(DataSource);
+  return dataSource.query(sql, params) as Promise<T[]>;
+}

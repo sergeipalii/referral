@@ -306,10 +306,13 @@ export class ConversionsService {
         `COALESCE(SUM(CASE WHEN pay."status" = 'completed' THEN pay."amount"::numeric ELSE 0 END), 0)::text`,
         'totalPaid',
       )
+      // `partners.id` is uuid; `conversion_events.partnerId` and
+      // `payments.partnerId` are varchar (legacy migration). Cast explicitly
+      // so Postgres accepts the join predicate.
       .innerJoin(
         'partners',
         'p',
-        'p."id" = ce."partnerId" AND p."userId" = ce."userId"',
+        'p."id"::text = ce."partnerId" AND p."userId" = ce."userId"',
       )
       .leftJoin(
         'payments',

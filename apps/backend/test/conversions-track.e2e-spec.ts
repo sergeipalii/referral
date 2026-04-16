@@ -14,6 +14,7 @@ describe('Conversions Track (e2e)', () => {
   let app: INestApplication;
   let user: TestUser;
   let apiKey: TestApiKey;
+  let partnerCode: string;
 
   const server = () => app.getHttpServer();
 
@@ -25,12 +26,13 @@ describe('Conversions Track (e2e)', () => {
     user = await registerUser(app);
     apiKey = await createApiKey(app, user.accessToken);
 
-    // Create a partner
-    await request(server())
+    // Create a partner — server auto-generates the code, we read it back.
+    const partnerRes = await request(server())
       .post('/api/partners')
       .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({ code: 'PARTNER_1', name: 'Test Partner' })
+      .send({ name: 'Test Partner' })
       .expect(201);
+    partnerCode = partnerRes.body.code as string;
 
     // Create a global accrual rule (fixed $10 per signup)
     await request(server())
@@ -64,7 +66,7 @@ describe('Conversions Track (e2e)', () => {
     it('should reject requests without API key', async () => {
       await request(server())
         .post('/api/conversions/track')
-        .send({ partnerCode: 'PARTNER_1', eventName: 'signup' })
+        .send({ partnerCode, eventName: 'signup' })
         .expect(401);
     });
 
@@ -72,7 +74,7 @@ describe('Conversions Track (e2e)', () => {
       await request(server())
         .post('/api/conversions/track')
         .set('X-API-Key', 'rk_invalid')
-        .send({ partnerCode: 'PARTNER_1', eventName: 'signup' })
+        .send({ partnerCode, eventName: 'signup' })
         .expect(401);
     });
 
@@ -80,13 +82,13 @@ describe('Conversions Track (e2e)', () => {
       await request(server())
         .post('/api/conversions/track')
         .set('X-API-Key', apiKey.key)
-        .send({ partnerCode: 'PARTNER_1', eventName: 'signup' })
+        .send({ partnerCode, eventName: 'signup' })
         .expect(401);
     });
 
     it('should reject requests with invalid HMAC signature', async () => {
       const body = JSON.stringify({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
       });
       await request(server())
@@ -107,7 +109,7 @@ describe('Conversions Track (e2e)', () => {
         .set('X-API-Key', apiKey.key)
         .set('X-Signature', 'invalid-format')
         .set('Content-Type', 'application/json')
-        .send(JSON.stringify({ partnerCode: 'PARTNER_1', eventName: 'signup' }))
+        .send(JSON.stringify({ partnerCode, eventName: 'signup' }))
         .expect(401);
     });
   });
@@ -128,7 +130,7 @@ describe('Conversions Track (e2e)', () => {
     });
 
     it('should reject missing eventName', async () => {
-      await sendSigned({ partnerCode: 'PARTNER_1' }).expect(400);
+      await sendSigned({ partnerCode }).expect(400);
     });
 
     it('should reject unknown partner code', async () => {
@@ -140,7 +142,7 @@ describe('Conversions Track (e2e)', () => {
 
     it('should reject negative count', async () => {
       await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         count: -1,
       }).expect(400);
@@ -160,7 +162,7 @@ describe('Conversions Track (e2e)', () => {
 
     it('should track a fixed-rule conversion', async () => {
       const res = await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
       }).expect(201);
 
@@ -173,7 +175,7 @@ describe('Conversions Track (e2e)', () => {
 
     it('should track a percentage-rule conversion with revenue', async () => {
       const res = await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'purchase',
         revenue: 200,
       }).expect(201);
@@ -185,7 +187,7 @@ describe('Conversions Track (e2e)', () => {
 
     it('should track a conversion with custom count', async () => {
       const res = await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         count: 5,
         eventDate: '2026-01-15',
@@ -198,7 +200,7 @@ describe('Conversions Track (e2e)', () => {
 
     it('should return accrualAmount 0 when no rule matches', async () => {
       const res = await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'unknown_event',
       }).expect(201);
 
@@ -211,14 +213,14 @@ describe('Conversions Track (e2e)', () => {
       const date = '2026-03-01';
 
       await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         eventDate: date,
         count: 2,
       }).expect(201);
 
       await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         eventDate: date,
         count: 3,
@@ -252,7 +254,7 @@ describe('Conversions Track (e2e)', () => {
 
     it('should return cached response for duplicate idempotency key', async () => {
       const body = {
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         eventDate: '2026-06-01',
         idempotencyKey: 'idem_test_1',
@@ -267,7 +269,7 @@ describe('Conversions Track (e2e)', () => {
     it('should not double-count with same idempotency key', async () => {
       const date = '2026-06-02';
       const body = {
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         eventDate: date,
         count: 7,
@@ -294,14 +296,14 @@ describe('Conversions Track (e2e)', () => {
       const date = '2026-06-03';
 
       await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         eventDate: date,
         idempotencyKey: 'idem_a',
       }).expect(201);
 
       await sendSigned({
-        partnerCode: 'PARTNER_1',
+        partnerCode,
         eventName: 'signup',
         eventDate: date,
         idempotencyKey: 'idem_b',

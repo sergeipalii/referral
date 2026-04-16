@@ -139,12 +139,14 @@ export class PaymentsService {
     userId: string,
     query: PaymentsExportQueryDto,
   ): Promise<string> {
+    // `partners.id` is uuid; `payments.partnerId` is character varying (legacy
+    // migration). Postgres won't implicitly compare them, so cast on join.
     const qb = this.paymentsRepository
       .createQueryBuilder('p')
       .innerJoin(
         'partners',
         'partner',
-        'partner."id" = p."partnerId" AND partner."userId" = p."userId"',
+        'partner."id"::text = p."partnerId" AND partner."userId" = p."userId"',
       )
       .select([
         'p."id" AS "paymentId"',
@@ -261,11 +263,14 @@ export class PaymentsService {
     const qb = this.paymentsRepository.manager
       .createQueryBuilder(PartnerEntity, 'partner')
       .select('partner."id"', 'partnerId')
+      // `conversion_events.partnerId` and `payments.partnerId` are varchar by
+      // legacy migration; `partner.id` is uuid. Cast explicitly on both sides
+      // of each correlation so Postgres accepts the comparison.
       .addSelect(
         `COALESCE((
             SELECT SUM(ce."accrualAmount"::numeric)
             FROM conversion_events ce
-            WHERE ce."partnerId" = partner."id"
+            WHERE ce."partnerId" = partner."id"::text
               AND ce."userId" = partner."userId"
           ), 0)::text`,
         'totalAccrued',
@@ -274,7 +279,7 @@ export class PaymentsService {
         `COALESCE((
             SELECT SUM(CASE WHEN pay."status" = 'completed' THEN pay."amount"::numeric ELSE 0 END)
             FROM payments pay
-            WHERE pay."partnerId" = partner."id"
+            WHERE pay."partnerId" = partner."id"::text
               AND pay."userId" = partner."userId"
           ), 0)::text`,
         'totalPaid',

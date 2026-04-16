@@ -8,6 +8,7 @@ import { ConversionsController } from './conversions.controller';
 import { PartnersModule } from '../partners/partners.module';
 import { AccrualRulesModule } from '../accrual-rules/accrual-rules.module';
 import { AuthModule } from '../auth/auth.module';
+import { UserAttributionsModule } from '../user-attributions/user-attributions.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from '../auth/auth.module';
     PartnersModule,
     AccrualRulesModule,
     AuthModule,
+    UserAttributionsModule,
   ],
   controllers: [ConversionsController],
   providers: [ConversionsService, IdempotencyService],

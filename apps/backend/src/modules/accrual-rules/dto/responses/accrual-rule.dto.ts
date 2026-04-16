@@ -15,7 +15,9 @@ export class AccrualRuleDto {
   @ApiProperty()
   eventName: string;
 
-  @ApiProperty({ enum: ['fixed', 'percentage'] })
+  @ApiProperty({
+    enum: ['fixed', 'percentage', 'recurring_fixed', 'recurring_percentage'],
+  })
   ruleType: RuleType;
 
   @ApiProperty()
@@ -23,6 +25,12 @@ export class AccrualRuleDto {
 
   @ApiPropertyOptional()
   revenueProperty: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Window length (months) for recurring rules. null = forever. Ignored for non-recurring rule types.',
+  })
+  recurrenceDurationMonths: number | null;
 
   @ApiProperty()
   isActive: boolean;
@@ -42,6 +50,7 @@ export class AccrualRuleDto {
     dto.ruleType = entity.ruleType;
     dto.amount = entity.amount;
     dto.revenueProperty = entity.revenueProperty;
+    dto.recurrenceDurationMonths = entity.recurrenceDurationMonths;
     dto.isActive = entity.isActive;
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;

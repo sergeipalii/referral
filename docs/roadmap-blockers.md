@@ -8,7 +8,7 @@
 
 ## 1. Партнёрский кабинет с отдельной авторизацией
 
-**Статус:** TODO
+**Статус:** DONE
 **Блокирует:** всех.
 
 Партнёру сейчас некуда заглянуть. Он не видит свои клики, конверсии, начисления и баланс — эту информацию приходится вручную высылать владельцу программы. Без кабинета продукт принципиально неполный.
@@ -30,7 +30,7 @@
 
 ## 2. Payout details у партнёра + CSV-экспорт выплат
 
-**Статус:** TODO
+**Статус:** DONE
 **Блокирует:** всех на стадии выплат.
 
 Автоматические выплатные рельсы (Stripe Connect / Wise / PayPal) — **не нужны** для MVP: клиенты платят из собственных систем (банк-клиент, ERP, бухгалтерия). Нужно только:
@@ -82,29 +82,30 @@
 
 ## 5. Recurring commissions
 
-**Статус:** TODO
+**Статус:** DONE
 **Блокирует:** SaaS-сегмент.
 
 Подписочные SaaS ожидают, что партнёр получает комиссию с каждого продления подписки, пока юзер платит. Сейчас `accrual-rules` умеют только fixed / percentage по разовому событию.
 
-**Скоуп MVP:**
-- Новый `ruleType = 'recurring_percentage'` | `'recurring_fixed'`.
-- У правила: `recurrenceDurationMonths` (null = пожизненно).
-- `POST /conversions/track` с `eventName = 'renewal'` и тем же `externalUserId` применяет recurring-правило, если есть исходная конверсия того же юзера с этим же партнёром в пределах `recurrenceDurationMonths`.
-- Backend хранит связь `externalUserId → partnerId` на первой конверсии, на последующих — применяет правило.
-- В UI: расширить форму правила выбором типа.
+**Реализовано:**
+- Новые `ruleType`: `'recurring_fixed'` и `'recurring_percentage'`. Расширен enum в entity, DTO, UI.
+- У правила — `recurrenceDurationMonths int null` (null = пожизненно).
+- Новая таблица `user_attributions` с UNIQUE(userId, externalUserId) — first-touch, race-safe INSERT ... ON CONFLICT DO NOTHING.
+- `TrackConversionDto` принимает `externalUserId`. На первом событии с partnerCode + externalUserId — создаётся attribution. На последующих — партнёр берётся из attribution, даже если передан другой partnerCode.
+- `ConversionsService.track()` для recurring правил проверяет окно (`firstConversionAt + recurrenceDurationMonths > now`); за рамками окна accrual = 0.
+- UI: форма правила переключает 4 типа, показывает чекбокс «Limit attribution window» + поле месяцев для recurring.
+- Integration page: новый раздел «Recurring commissions» с field-маппингом и кодом-примером.
 
-**Зависимости:** желательно пункт 4 (для `externalUserId`) или явная передача его в track.
+**Зависимости:** `externalUserId` передаётся явно в track (пункт 4 пока не реализован — ответственность на клиенте).
 
 ---
 
 ## Порядок работ
 
-1. Сначала пункт **1** — это фундамент, от него зависят 2 и отчасти 3 (UX партнёра).
-2. Параллельно или сразу после: пункт **2** — маленький по объёму, но открывает процесс выплат целиком.
-3. Далее — один из 3/4/5 в зависимости от того, какой сегмент целимся открывать первым:
-   - **e-commerce** → пункт 3 (промокоды).
-   - **web-сервисы без мобайла** → пункт 4 (click tracking).
-   - **подписочные SaaS** → пункт 5 (recurring).
+1. ✅ Пункт **1** — партнёрский кабинет (фундамент).
+2. ✅ Пункт **2** — payout details + CSV + batch.
+3. Пункт **3** — промокоды (открывает e-commerce).
+4. Пункт **4** — click tracking + attribution window (открывает web без MMP).
+5. ✅ Пункт **5** — recurring commissions (открывает SaaS).
 
-Пункты 3-5 между собой слабо связаны и могут идти в произвольном порядке.
+Осталось: пункты 3 и 4 (независимы между собой).

@@ -211,6 +211,30 @@ export default function IntegrationPage() {
                         chars)
                       </td>
                     </tr>
+                    <tr>
+                      <td className="p-2">
+                        <code>externalUserId</code>
+                      </td>
+                      <td className="p-2">string</td>
+                      <td className="p-2">No</td>
+                      <td className="p-2">
+                        Stable identifier of the end-user in your system —
+                        required for recurring rules; enables first-touch
+                        attribution (see below)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2">
+                        <code>partnerCode</code>
+                      </td>
+                      <td className="p-2">string</td>
+                      <td className="p-2">Conditional</td>
+                      <td className="p-2">
+                        Required on first event for a user. Subsequent events
+                        for the same <code>externalUserId</code> can omit it —
+                        the stored attribution takes over
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -361,6 +385,83 @@ curl -X POST https://your-api.example.com/api/conversions/track \\
   -H "X-Signature: sha256=$SIG" \\
   -d "$BODY"`}
               </pre>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Recurring commissions */}
+      <Card className="mb-6">
+        <CardHeader>
+          <h2 className="text-lg font-semibold">
+            Recurring commissions (SaaS subscriptions)
+          </h2>
+        </CardHeader>
+        <CardBody>
+          <div className="text-sm text-gray-600 space-y-3">
+            <p>
+              For subscription products you typically want to pay the partner
+              on every renewal, not just the initial signup. That&apos;s what
+              recurring rule types are for. The flow:
+            </p>
+
+            <div className="bg-gray-50 border rounded-lg p-4 font-mono text-xs space-y-1">
+              <p>
+                1. Create a rule with{' '}
+                <code>ruleType = &quot;recurring_percentage&quot;</code> (or{' '}
+                <code>recurring_fixed</code>) and optionally{' '}
+                <code>recurrenceDurationMonths</code> (null = forever).
+              </p>
+              <p>
+                2. On the <strong>first</strong> conversion for a given user,
+                send both <code>partnerCode</code> and{' '}
+                <code>externalUserId</code>. We store the attribution{' '}
+                <code>externalUserId → partnerCode</code> (first-touch).
+              </p>
+              <p>
+                3. On every <strong>subsequent</strong> event (e.g.
+                subscription renewal) for the same <code>externalUserId</code>
+                , the rule pays the originally attributed partner as long as
+                the window is still open.
+              </p>
+              <p>
+                4. After the window closes (or if none was set and the user
+                stops converting), no more payouts.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-gray-700 mb-1">
+                Example: pay 20% of each monthly renewal for 12 months
+              </p>
+              <pre className="bg-gray-900 text-green-400 rounded-lg p-4 text-xs overflow-x-auto">
+{`// First conversion — signup
+await trackConversion({
+  partnerCode: 'alice_q4',
+  externalUserId: 'user_1234',
+  eventName: 'subscription_start',
+  revenue: 29.99,
+  idempotencyKey: 'sub_start_1234',
+});
+
+// Every monthly renewal — no partnerCode needed
+await trackConversion({
+  externalUserId: 'user_1234',
+  eventName: 'subscription_renewal',
+  revenue: 29.99,
+  idempotencyKey: 'renewal_1234_2026-04',
+});`}
+              </pre>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-blue-800 text-xs">
+                <strong>First-touch wins.</strong> Once an{' '}
+                <code>externalUserId</code> is attributed to a partner, the
+                attribution never moves — even if you pass a different{' '}
+                <code>partnerCode</code> on a later event. If you need to
+                re-attribute, delete the user attribution record out of band.
+              </p>
             </div>
           </div>
         </CardBody>

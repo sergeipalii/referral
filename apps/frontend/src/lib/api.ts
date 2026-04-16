@@ -205,9 +205,14 @@ class ApiClient {
   createRule(data: {
     partnerId?: string;
     eventName: string;
-    ruleType: 'fixed' | 'percentage';
+    ruleType:
+      | 'fixed'
+      | 'percentage'
+      | 'recurring_fixed'
+      | 'recurring_percentage';
     amount: string;
     revenueProperty?: string;
+    recurrenceDurationMonths?: number | null;
   }) {
     return this.post<AccrualRule>('/accrual-rules', data);
   }
@@ -219,6 +224,7 @@ class ApiClient {
       ruleType: string;
       amount: string;
       revenueProperty: string;
+      recurrenceDurationMonths: number | null;
       isActive: boolean;
     }>,
   ) {

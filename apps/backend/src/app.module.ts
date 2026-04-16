@@ -15,6 +15,7 @@ import { AccrualRulesModule } from './modules/accrual-rules/accrual-rules.module
 import { ConversionsModule } from './modules/conversions/conversions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { UserAttributionsModule } from './modules/user-attributions/user-attributions.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     PartnersModule,
     PartnerAuthModule,
     AccrualRulesModule,
+    UserAttributionsModule,
     ConversionsModule,
     PaymentsModule,
     WebhooksModule,

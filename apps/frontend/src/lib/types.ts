@@ -29,14 +29,21 @@ export interface BatchPaymentsResult {
   paymentIds: string[];
 }
 
+export type AccrualRuleType =
+  | 'fixed'
+  | 'percentage'
+  | 'recurring_fixed'
+  | 'recurring_percentage';
+
 export interface AccrualRule {
   id: string;
   userId: string;
   partnerId: string | null;
   eventName: string;
-  ruleType: 'fixed' | 'percentage';
+  ruleType: AccrualRuleType;
   amount: string;
   revenueProperty: string | null;
+  recurrenceDurationMonths: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

@@ -6,7 +6,22 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export type RuleType = 'fixed' | 'percentage';
+export type RuleType =
+  | 'fixed'
+  | 'percentage'
+  | 'recurring_fixed'
+  | 'recurring_percentage';
+
+export const RECURRING_RULE_TYPES: RuleType[] = [
+  'recurring_fixed',
+  'recurring_percentage',
+];
+
+export function isRecurringRuleType(type: RuleType): boolean {
+  return (
+    type === 'recurring_fixed' || type === 'recurring_percentage'
+  );
+}
 
 @Entity('accrual_rules')
 export class AccrualRuleEntity {
@@ -30,6 +45,13 @@ export class AccrualRuleEntity {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   revenueProperty: string | null;
+
+  /**
+   * Only meaningful for recurring rules. null = pays forever, any positive
+   * int = window closes that many months after firstConversionAt.
+   */
+  @Column({ type: 'int', nullable: true })
+  recurrenceDurationMonths: number | null;
 
   @Column({ default: true })
   isActive: boolean;

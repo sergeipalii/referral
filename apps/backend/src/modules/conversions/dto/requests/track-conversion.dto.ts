@@ -11,10 +11,25 @@ import {
 } from 'class-validator';
 
 export class TrackConversionDto {
-  @ApiProperty({ example: 'ACME_2024', description: 'Partner referral code' })
+  @ApiPropertyOptional({
+    example: 'ACME_2024',
+    description:
+      'Partner referral code. Required for the very first event of a new user; on subsequent events for the same `externalUserId` the stored attribution takes over.',
+  })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  partnerCode: string;
+  partnerCode?: string;
+
+  @ApiPropertyOptional({
+    example: 'user_1234',
+    description:
+      'Stable identifier of the end-user in your app. Enables recurring attribution — the first time we see this ID together with a partnerCode we map them together, later events (e.g. subscription renewals) can pay the partner again without re-sending partnerCode.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  externalUserId?: string;
 
   @ApiProperty({ example: 'signup', description: 'Event name' })
   @IsString()

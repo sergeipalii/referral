@@ -5,10 +5,19 @@ import {
   IsOptional,
   IsEnum,
   IsNumberString,
+  IsInt,
+  Min,
   MaxLength,
   IsBoolean,
 } from 'class-validator';
 import type { RuleType } from '../../entities/accrual-rule.entity';
+
+const RULE_TYPES = [
+  'fixed',
+  'percentage',
+  'recurring_fixed',
+  'recurring_percentage',
+] as const;
 
 export class UpdateAccrualRuleDto {
   @ApiPropertyOptional({ example: 'subscription_start' })
@@ -18,9 +27,9 @@ export class UpdateAccrualRuleDto {
   @MaxLength(255)
   eventName?: string;
 
-  @ApiPropertyOptional({ enum: ['fixed', 'percentage'] })
+  @ApiPropertyOptional({ enum: RULE_TYPES })
   @IsOptional()
-  @IsEnum(['fixed', 'percentage'])
+  @IsEnum(RULE_TYPES)
   ruleType?: RuleType;
 
   @ApiPropertyOptional({ example: '15.000000' })
@@ -33,6 +42,16 @@ export class UpdateAccrualRuleDto {
   @IsString()
   @MaxLength(255)
   revenueProperty?: string;
+
+  @ApiPropertyOptional({
+    example: 12,
+    description:
+      'Recurring window in months. null = pay forever. Only applies to recurring_* rule types.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  recurrenceDurationMonths?: number | null;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { ConversionEventEntity } from './entities/conversion-event.entity';
@@ -13,7 +17,13 @@ import {
 } from '../../common/dto/pagination-meta.dto';
 import { PartnersService } from '../partners/partners.service';
 import { AccrualRulesService } from '../accrual-rules/accrual-rules.service';
+import {
+  AccrualRuleEntity,
+  isRecurringRuleType,
+} from '../accrual-rules/entities/accrual-rule.entity';
 import { IdempotencyService } from './idempotency.service';
+import { UserAttributionsService } from '../user-attributions/user-attributions.service';
+import { UserAttributionEntity } from '../user-attributions/entities/user-attribution.entity';
 
 export interface UpsertConversionBucketData {
   userId: string;
@@ -26,6 +36,23 @@ export interface UpsertConversionBucketData {
   accrualRuleId: string | null;
 }
 
+/**
+ * Add `n` calendar months to `date`. Mirrors JS Date arithmetic so "plus 1
+ * month" on Jan 31 lands on the last day of February, not March 3rd.
+ */
+function addMonths(date: Date, n: number): Date {
+  const d = new Date(date.getTime());
+  const targetMonth = d.getMonth() + n;
+  d.setMonth(targetMonth);
+  // If the original day-of-month doesn't exist in the target month (e.g.
+  // Mar 31 → Feb), JS rolls over; clamp to the last day of the target month.
+  const expectedMonth = ((targetMonth % 12) + 12) % 12;
+  if (d.getMonth() !== expectedMonth) {
+    d.setDate(0);
+  }
+  return d;
+}
+
 @Injectable()
 export class ConversionsService {
   constructor(
@@ -34,13 +61,15 @@ export class ConversionsService {
     private readonly partnersService: PartnersService,
     private readonly accrualRulesService: AccrualRulesService,
     private readonly idempotencyService: IdempotencyService,
+    private readonly userAttributionsService: UserAttributionsService,
   ) {}
 
   /**
-   * Full tracking pipeline: idempotency check → partner lookup → accrual
-   * calculation → additive upsert → idempotency store. Reused by both the
-   * HMAC-authenticated `/conversions/track` endpoint and the direct MMP
-   * webhook endpoints.
+   * Full tracking pipeline: idempotency → resolve partner (from attribution
+   * if we've seen `externalUserId` before, else from `partnerCode`) → accrual
+   * calculation (gated by the recurring-window if the rule is recurring) →
+   * additive upsert → idempotency store. Reused by both the HMAC-authenticated
+   * `/conversions/track` endpoint and the direct MMP webhook endpoints.
    */
   async track(
     userId: string,
@@ -54,14 +83,50 @@ export class ConversionsService {
       if (cached) return cached as TrackResultDto;
     }
 
-    const partner = await this.partnersService.findByCode(
-      userId,
-      dto.partnerCode,
-    );
-    if (!partner || !partner.isActive) {
-      throw new NotFoundException(
-        `Partner with code "${dto.partnerCode}" not found`,
+    // ── Resolve partner ─────────────────────────────────────────────────
+    // First-touch attribution wins: if we've seen this externalUserId before,
+    // the stored partner gets credit even if the caller passes a different
+    // partnerCode on this event.
+    let attribution: UserAttributionEntity | null = null;
+    if (dto.externalUserId) {
+      attribution = await this.userAttributionsService.findByExternalUserId(
+        userId,
+        dto.externalUserId,
       );
+    }
+
+    let partnerId: string;
+    if (attribution) {
+      partnerId = attribution.partnerId;
+    } else {
+      if (!dto.partnerCode) {
+        throw new BadRequestException(
+          'Provide partnerCode (first conversion) or externalUserId with an existing attribution',
+        );
+      }
+      const partner = await this.partnersService.findByCode(
+        userId,
+        dto.partnerCode,
+      );
+      if (!partner || !partner.isActive) {
+        throw new NotFoundException(
+          `Partner with code "${dto.partnerCode}" not found`,
+        );
+      }
+      partnerId = partner.id;
+
+      // Establish first-touch attribution if we have an externalUserId.
+      if (dto.externalUserId) {
+        attribution = await this.userAttributionsService.getOrCreate(
+          userId,
+          dto.externalUserId,
+          partnerId,
+          new Date(),
+        );
+        // getOrCreate may return a pre-existing row (race with another event
+        // on the same user) — respect that and switch back to its partner.
+        partnerId = attribution.partnerId;
+      }
     }
 
     const eventDate = dto.eventDate ?? new Date().toISOString().slice(0, 10);
@@ -70,22 +135,20 @@ export class ConversionsService {
 
     const rule = await this.accrualRulesService.findApplicableRule(
       userId,
-      partner.id,
+      partnerId,
       dto.eventName,
     );
 
-    let accrualAmount = 0;
-    if (rule) {
-      if (rule.ruleType === 'fixed') {
-        accrualAmount = parseFloat(rule.amount) * count;
-      } else if (rule.ruleType === 'percentage') {
-        accrualAmount = (parseFloat(rule.amount) / 100) * revenue;
-      }
-    }
+    const accrualAmount = this.calculateAccrual(
+      rule,
+      count,
+      revenue,
+      attribution,
+    );
 
     await this.addToBucket({
       userId,
-      partnerId: partner.id,
+      partnerId,
       eventName: dto.eventName,
       eventDate,
       count,
@@ -96,7 +159,7 @@ export class ConversionsService {
 
     const result: TrackResultDto = {
       success: true,
-      partnerId: partner.id,
+      partnerId,
       eventName: dto.eventName,
       eventDate,
       count,
@@ -110,6 +173,44 @@ export class ConversionsService {
     }
 
     return result;
+  }
+
+  /**
+   * Compute the accrual amount for an event. Recurring rules additionally
+   * require (a) an attribution row so we know when the relationship started,
+   * and (b) for that attribution to still fall inside the configured window.
+   */
+  private calculateAccrual(
+    rule: AccrualRuleEntity | null,
+    count: number,
+    revenue: number,
+    attribution: UserAttributionEntity | null,
+  ): number {
+    if (!rule) return 0;
+
+    if (isRecurringRuleType(rule.ruleType)) {
+      if (!attribution) {
+        // Recurring payout requires an attribution row — without it we can't
+        // tell if the event is within the commission window.
+        return 0;
+      }
+      if (
+        rule.recurrenceDurationMonths !== null &&
+        rule.recurrenceDurationMonths !== undefined
+      ) {
+        const expiresAt = addMonths(
+          attribution.firstConversionAt,
+          rule.recurrenceDurationMonths,
+        );
+        if (Date.now() > expiresAt.getTime()) return 0;
+      }
+    }
+
+    if (rule.ruleType === 'fixed' || rule.ruleType === 'recurring_fixed') {
+      return parseFloat(rule.amount) * count;
+    }
+    // percentage / recurring_percentage
+    return (parseFloat(rule.amount) / 100) * revenue;
   }
 
   async findAll(

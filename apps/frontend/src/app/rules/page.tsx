@@ -12,7 +12,42 @@ import { Table, Thead, Th, Td } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
 import { EmptyState } from '@/components/ui/empty-state';
 import { api, ApiError } from '@/lib/api';
-import type { AccrualRule, Partner, PaginatedResponse } from '@/lib/types';
+import type {
+  AccrualRule,
+  AccrualRuleType,
+  Partner,
+  PaginatedResponse,
+} from '@/lib/types';
+
+const RULE_TYPE_LABELS: Record<AccrualRuleType, string> = {
+  fixed: 'Fixed per event',
+  percentage: 'Percent of revenue',
+  recurring_fixed: 'Recurring (fixed)',
+  recurring_percentage: 'Recurring (%)',
+};
+
+const RULE_TYPE_VARIANT: Record<
+  AccrualRuleType,
+  'blue' | 'yellow' | 'green' | 'red'
+> = {
+  fixed: 'blue',
+  percentage: 'yellow',
+  recurring_fixed: 'green',
+  recurring_percentage: 'green',
+};
+
+function isRecurring(type: AccrualRuleType): boolean {
+  return type === 'recurring_fixed' || type === 'recurring_percentage';
+}
+
+function isPercentage(type: AccrualRuleType): boolean {
+  return type === 'percentage' || type === 'recurring_percentage';
+}
+
+function formatDuration(months: number | null): string {
+  if (months === null) return 'forever';
+  return `${months} mo`;
+}
 
 export default function RulesPage() {
   const [data, setData] = useState<PaginatedResponse<AccrualRule> | null>(null);
@@ -72,6 +107,7 @@ export default function RulesPage() {
                   <Th>Partner</Th>
                   <Th>Type</Th>
                   <Th>Amount</Th>
+                  <Th>Window</Th>
                   <Th>Status</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
@@ -86,14 +122,17 @@ export default function RulesPage() {
                     </Td>
                     <Td>{partnerName(r.partnerId)}</Td>
                     <Td>
-                      <Badge
-                        variant={r.ruleType === 'fixed' ? 'blue' : 'yellow'}
-                      >
-                        {r.ruleType}
+                      <Badge variant={RULE_TYPE_VARIANT[r.ruleType]}>
+                        {RULE_TYPE_LABELS[r.ruleType]}
                       </Badge>
                     </Td>
                     <Td>
-                      {r.ruleType === 'percentage' ? `${r.amount}%` : r.amount}
+                      {isPercentage(r.ruleType) ? `${r.amount}%` : r.amount}
+                    </Td>
+                    <Td>
+                      {isRecurring(r.ruleType)
+                        ? formatDuration(r.recurrenceDurationMonths)
+                        : '—'}
                     </Td>
                     <Td>
                       <Badge variant={r.isActive ? 'green' : 'gray'}>
@@ -170,9 +209,11 @@ function RuleModal({
 }) {
   const [partnerId, setPartnerId] = useState('');
   const [eventName, setEventName] = useState('');
-  const [ruleType, setRuleType] = useState<'fixed' | 'percentage'>('fixed');
+  const [ruleType, setRuleType] = useState<AccrualRuleType>('fixed');
   const [amount, setAmount] = useState('');
   const [revenueProperty, setRevenueProperty] = useState('');
+  const [durationEnabled, setDurationEnabled] = useState(false);
+  const [durationMonths, setDurationMonths] = useState('12');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -182,6 +223,12 @@ function RuleModal({
       setRuleType(rule?.ruleType || 'fixed');
       setAmount(rule?.amount || '');
       setRevenueProperty(rule?.revenueProperty || '');
+      setDurationEnabled(rule?.recurrenceDurationMonths != null);
+      setDurationMonths(
+        rule?.recurrenceDurationMonths
+          ? String(rule.recurrenceDurationMonths)
+          : '12',
+      );
       setError('');
     }
   }, [open, rule, setError]);
@@ -191,12 +238,22 @@ function RuleModal({
     setLoading(true);
     setError('');
     try {
+      // Only send recurrenceDurationMonths when it actually applies — the
+      // backend ignores it for non-recurring types anyway, but sending null
+      // vs a number is semantically different (null = forever).
+      const recurrenceDurationMonths = isRecurring(ruleType)
+        ? durationEnabled
+          ? Number(durationMonths) || 1
+          : null
+        : undefined;
+
       if (rule) {
         await api.updateRule(rule.id, {
           eventName,
           ruleType,
           amount,
           revenueProperty: revenueProperty || undefined,
+          recurrenceDurationMonths,
         });
       } else {
         await api.createRule({
@@ -205,6 +262,7 @@ function RuleModal({
           ruleType,
           amount,
           revenueProperty: revenueProperty || undefined,
+          recurrenceDurationMonths,
         });
       }
       onSaved();
@@ -243,33 +301,82 @@ function RuleModal({
           required
           value={eventName}
           onChange={(e) => setEventName(e.target.value)}
-          placeholder="e.g. purchase"
+          placeholder="e.g. purchase, af_subscribe"
         />
         <Select
           label="Rule Type"
           value={ruleType}
-          onChange={(e) =>
-            setRuleType(e.target.value as 'fixed' | 'percentage')
-          }
+          onChange={(e) => setRuleType(e.target.value as AccrualRuleType)}
           options={[
-            { value: 'fixed', label: 'Fixed amount per event' },
-            { value: 'percentage', label: 'Percentage of revenue' },
+            { value: 'fixed', label: 'Fixed — one-off payout per event' },
+            { value: 'percentage', label: 'Percent of revenue — one-off' },
+            {
+              value: 'recurring_fixed',
+              label: 'Recurring fixed — pays every matching event',
+            },
+            {
+              value: 'recurring_percentage',
+              label: 'Recurring percent — pays every matching event',
+            },
           ]}
         />
+        {isRecurring(ruleType) && (
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900 space-y-2">
+            <p>
+              <strong>Recurring rules</strong> require an{' '}
+              <code className="bg-white/50 px-1 rounded">externalUserId</code>{' '}
+              on each tracked event. The partner is credited on every matching
+              event while the attribution window is open.
+            </p>
+          </div>
+        )}
         <Input
-          label={ruleType === 'percentage' ? 'Percentage' : 'Amount'}
+          label={isPercentage(ruleType) ? 'Percentage' : 'Amount'}
           required
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder={ruleType === 'percentage' ? 'e.g. 10' : 'e.g. 5.00'}
+          placeholder={isPercentage(ruleType) ? 'e.g. 10' : 'e.g. 5.00'}
         />
-        {ruleType === 'percentage' && (
+        {isPercentage(ruleType) && (
           <Input
             label="Revenue Property"
             value={revenueProperty}
             onChange={(e) => setRevenueProperty(e.target.value)}
-            placeholder="Event property name for revenue"
+            placeholder="Event property name for revenue (informational)"
           />
+        )}
+        {isRecurring(ruleType) && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={durationEnabled}
+                onChange={(e) => setDurationEnabled(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Limit attribution window
+            </label>
+            {durationEnabled ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  required
+                  value={durationMonths}
+                  onChange={(e) => setDurationMonths(e.target.value)}
+                  className="w-24"
+                />
+                <span className="text-sm text-gray-500">
+                  months from first conversion
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 ml-6">
+                Unlimited — partner earns as long as the user keeps
+                converting.
+              </p>
+            )}
+          </div>
         )}
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>

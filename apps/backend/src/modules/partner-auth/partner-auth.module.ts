@@ -5,6 +5,9 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PartnerEntity } from '../partners/entities/partner.entity';
 import { AuthModule } from '../auth/auth.module';
+import { PartnersModule } from '../partners/partners.module';
+import { ConversionsModule } from '../conversions/conversions.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { PartnerAuthController } from './partner-auth.controller';
 import { PartnerPortalController } from './partner-portal.controller';
 import { PartnerAuthService } from './partner-auth.service';
@@ -27,6 +30,10 @@ import { PartnerJwtAuthGuard } from './guards/partner-jwt-auth.guard';
     TypeOrmModule.forFeature([PartnerEntity]),
     // AuthModule exports JwtAuthGuard (used on invitation endpoints).
     AuthModule,
+    // Partner portal reuses existing services — no duplicated query logic.
+    PartnersModule,
+    ConversionsModule,
+    PaymentsModule,
   ],
   controllers: [PartnerAuthController, PartnerPortalController],
   providers: [PartnerAuthService, PartnerJwtStrategy, PartnerJwtAuthGuard],

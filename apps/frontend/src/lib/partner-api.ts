@@ -1,4 +1,11 @@
-import type { PartnerAuthTokens, PartnerSelf } from './types';
+import type {
+  ConversionEvent,
+  PaginatedResponse,
+  PartnerAuthTokens,
+  PartnerDashboard,
+  PartnerSelf,
+  Payment,
+} from './types';
 import { ApiError } from './api';
 
 const API_BASE =
@@ -113,6 +120,46 @@ class PartnerApiClient {
 
   getSelf() {
     return this.request<PartnerSelf>('/partner-portal/self');
+  }
+
+  getDashboard() {
+    return this.request<PartnerDashboard>('/partner-portal/dashboard');
+  }
+
+  getConversions(params?: {
+    page?: number;
+    limit?: number;
+    eventName?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.eventName) q.set('eventName', params.eventName);
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    return this.request<PaginatedResponse<ConversionEvent>>(
+      `/partner-portal/conversions?${q}`,
+    );
+  }
+
+  getPayments(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set('status', params.status);
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    return this.request<PaginatedResponse<Payment>>(
+      `/partner-portal/payments?${q}`,
+    );
   }
 }
 

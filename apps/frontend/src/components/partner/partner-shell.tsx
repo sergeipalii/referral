@@ -1,18 +1,27 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { usePartnerAuth } from '@/contexts/partner-auth-context';
 import { Button } from '@/components/ui/button';
+
+const navItems = [
+  { href: '/partner', label: 'Dashboard', icon: 'D', exact: true },
+  { href: '/partner/conversions', label: 'Conversions', icon: 'C' },
+  { href: '/partner/payments', label: 'Payments', icon: '$' },
+];
 
 /**
  * Layout + auth gate for authenticated partner pages. Redirects to
  * /partner/login when unauthenticated and shows a spinner during the initial
- * auth probe.
+ * auth probe. Renders a minimal left nav over the shared content area — same
+ * pattern as the owner's DashboardShell but scoped to the partner.
  */
 export function PartnerShell({ children }: { children: ReactNode }) {
   const { partner, loading, logout } = usePartnerAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !partner) {
@@ -37,30 +46,61 @@ export function PartnerShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-3">
-            <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-700">
-              Partner portal
-            </span>
-            <span className="text-sm text-gray-900 font-medium">
-              {partner.name}
-            </span>
-            <code className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-              {partner.code}
-            </code>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-500 hidden sm:inline">
-              {partner.email}
-            </span>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              Sign out
-            </Button>
+      <aside className="fixed inset-y-0 left-0 z-30 w-56 border-r border-gray-200 bg-white flex flex-col">
+        <div className="px-4 py-5 border-b border-gray-200">
+          <Link href="/partner" className="text-lg font-bold text-indigo-600">
+            Partner Portal
+          </Link>
+          <div className="mt-1 text-xs text-gray-500 truncate">
+            {partner.name}
           </div>
         </div>
-      </header>
-      <main className="mx-auto max-w-5xl p-6">{children}</main>
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {navItems.map((item) => {
+            const active = item.exact
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold ${
+                    active
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="border-t border-gray-200 p-3 space-y-1">
+          <div className="px-2 text-xs text-gray-500 truncate" title={partner.email}>
+            {partner.email}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            onClick={handleLogout}
+          >
+            Sign out
+          </Button>
+        </div>
+      </aside>
+      <div className="pl-56">
+        <main className="p-6">{children}</main>
+      </div>
     </div>
   );
 }

@@ -162,6 +162,30 @@ export class ConversionsService {
     return this.findAll(userId, { ...query, partnerId });
   }
 
+  /**
+   * Aggregate conversion-side totals for a single partner. Used by the partner
+   * portal dashboard alongside payment-side totals from `PaymentsService`.
+   */
+  async getPartnerConversionTotals(
+    userId: string,
+    partnerId: string,
+  ): Promise<{ totalConversions: number; lastConversionDate: string | null }> {
+    const row = await this.conversionsRepository
+      .createQueryBuilder('ce')
+      .select('COALESCE(SUM(ce."count"), 0)::int', 'totalConversions')
+      .addSelect('MAX(ce."eventDate")', 'lastConversionDate')
+      .where('ce."userId" = :userId AND ce."partnerId" = :partnerId', {
+        userId,
+        partnerId,
+      })
+      .getRawOne<{ totalConversions: number; lastConversionDate: string | null }>();
+
+    return {
+      totalConversions: Number(row?.totalConversions ?? 0),
+      lastConversionDate: row?.lastConversionDate ?? null,
+    };
+  }
+
   async getPartnerSummaries(
     userId: string,
     dateFrom?: string,

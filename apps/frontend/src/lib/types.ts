@@ -138,6 +138,18 @@ export interface PartnerSelf {
   createdAt: string;
 }
 
+export interface PartnerDashboard {
+  partnerId: string;
+  partnerCode: string;
+  partnerName: string;
+  totalConversions: number;
+  totalAccrued: string;
+  totalPaid: string;
+  pendingPayments: string;
+  balance: string;
+  lastConversionDate: string | null;
+}
+
 /** Response from POST /partner-auth/invitations — shown to the owner once. */
 export interface PartnerInvitationCreated {
   token: string;

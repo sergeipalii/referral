@@ -1,9 +1,11 @@
 'use client';
 
-import { usePartnerAuth } from '@/contexts/partner-auth-context';
+import { useEffect, useState } from 'react';
 import { PartnerShell } from '@/components/partner/partner-shell';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { partnerApi } from '@/lib/partner-api';
+import type { PartnerDashboard } from '@/lib/types';
 
 export default function PartnerDashboardPage() {
   return (
@@ -14,101 +16,147 @@ export default function PartnerDashboardPage() {
 }
 
 function Dashboard() {
-  // Safe inside PartnerShell — shell guarantees `partner` is populated.
-  const { partner } = usePartnerAuth();
-  if (!partner) return null;
+  const [data, setData] = useState<PartnerDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    partnerApi
+      .getDashboard()
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Welcome, {partner.name}</h1>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">
-          This is your partner portal. Stats, payouts, and settings will appear
-          here as the program owner tracks your conversions.
+          Your performance in the program at a glance.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <h2 className="text-lg font-semibold">Your profile</h2>
-        </CardHeader>
-        <CardBody>
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">
-                Name
-              </dt>
-              <dd className="mt-1 text-gray-900">{partner.name}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">
-                Referral code
-              </dt>
-              <dd className="mt-1">
-                <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-900">
-                  {partner.code}
-                </code>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">
-                Email
-              </dt>
-              <dd className="mt-1 text-gray-900">{partner.email || '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">
-                Status
-              </dt>
-              <dd className="mt-1">
-                <Badge variant={partner.isActive ? 'green' : 'gray'}>
-                  {partner.isActive ? 'Active' : 'Inactive'}
-                </Badge>
-              </dd>
-            </div>
-            {partner.description && (
-              <div className="sm:col-span-2">
-                <dt className="text-xs font-medium uppercase text-gray-500">
-                  Description
-                </dt>
-                <dd className="mt-1 text-gray-900">{partner.description}</dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">
-                Joined
-              </dt>
-              <dd className="mt-1 text-gray-900">
-                {new Date(partner.createdAt).toLocaleDateString()}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">
-                Last sign-in
-              </dt>
-              <dd className="mt-1 text-gray-900">
-                {partner.lastLoginAt
-                  ? new Date(partner.lastLoginAt).toLocaleString()
-                  : '—'}
-              </dd>
-            </div>
-          </dl>
-        </CardBody>
-      </Card>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        </div>
+      ) : data ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              label="Total conversions"
+              value={data.totalConversions.toLocaleString()}
+            />
+            <MetricCard
+              label="Total accrued"
+              value={Number(data.totalAccrued).toFixed(2)}
+            />
+            <MetricCard
+              label="Total paid"
+              value={Number(data.totalPaid).toFixed(2)}
+            />
+            <MetricCard
+              label="Balance"
+              value={Number(data.balance).toFixed(2)}
+              tone={Number(data.balance) > 0 ? 'positive' : 'neutral'}
+            />
+          </div>
 
-      <Card>
-        <CardHeader>
-          <h2 className="text-lg font-semibold">Coming soon</h2>
-        </CardHeader>
-        <CardBody>
-          <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-            <li>Conversion history with date filters</li>
-            <li>Accruals and pay-out balance</li>
-            <li>Payment records from the program</li>
-            <li>Payout details (IBAN / PayPal / Wise)</li>
-          </ul>
-        </CardBody>
-      </Card>
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-semibold">Details</h2>
+            </CardHeader>
+            <CardBody>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <DetailItem
+                  label="Pending payments"
+                  value={Number(data.pendingPayments).toFixed(2)}
+                />
+                <DetailItem
+                  label="Last conversion"
+                  value={
+                    data.lastConversionDate
+                      ? new Date(data.lastConversionDate).toLocaleDateString()
+                      : 'Never'
+                  }
+                />
+                <DetailItem
+                  label="Referral code"
+                  value={
+                    <code className="bg-gray-100 px-2 py-0.5 rounded text-gray-900">
+                      {data.partnerCode}
+                    </code>
+                  }
+                />
+                <DetailItem
+                  label="Partner"
+                  value={
+                    <>
+                      {data.partnerName}{' '}
+                      <Badge variant="gray">active</Badge>
+                    </>
+                  }
+                />
+              </dl>
+            </CardBody>
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <CardBody>
+            <p className="text-sm text-gray-500">
+              Failed to load your dashboard. Refresh the page or sign in again.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'neutral';
+}) {
+  return (
+    <Card>
+      <CardBody>
+        <p className="text-xs font-medium uppercase text-gray-500">{label}</p>
+        <p
+          className={`mt-2 text-2xl font-bold ${
+            tone === 'positive' ? 'text-green-700' : 'text-gray-900'
+          }`}
+        >
+          {value}
+        </p>
+      </CardBody>
+    </Card>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase text-gray-500">{label}</dt>
+      <dd className="mt-1 text-gray-900 flex items-center gap-2">{value}</dd>
     </div>
   );
 }

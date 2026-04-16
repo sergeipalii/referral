@@ -72,6 +72,12 @@ export class ApiKeyCreatedDto {
   @ApiProperty({ description: 'HMAC signing secret (shown only once)' })
   signingSecret: string;
 
+  @ApiProperty({
+    description:
+      'Token used in direct MMP webhook URLs (shown only once). Treat as a secret.',
+  })
+  webhookToken: string;
+
   @ApiProperty()
   createdAt: Date;
 }

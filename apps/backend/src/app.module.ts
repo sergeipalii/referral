@@ -13,6 +13,7 @@ import { PartnersModule } from './modules/partners/partners.module';
 import { AccrualRulesModule } from './modules/accrual-rules/accrual-rules.module';
 import { ConversionsModule } from './modules/conversions/conversions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
     AccrualRulesModule,
     ConversionsModule,
     PaymentsModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

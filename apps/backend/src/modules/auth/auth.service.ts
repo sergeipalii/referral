@@ -97,6 +97,7 @@ export class AuthService {
     const hashedKey = crypto.createHash('sha256').update(rawKey).digest('hex');
     const prefix = rawKey.slice(0, 12);
     const signingSecret = crypto.randomBytes(32).toString('hex');
+    const webhookToken = crypto.randomBytes(32).toString('hex');
 
     const entity = this.apiKeyRepository.create({
       userId,
@@ -104,6 +105,7 @@ export class AuthService {
       hashedKey,
       prefix,
       signingSecret,
+      webhookToken,
     });
     const saved = await this.apiKeyRepository.save(entity);
 
@@ -112,6 +114,7 @@ export class AuthService {
       name: saved.name,
       key: rawKey,
       signingSecret,
+      webhookToken,
       createdAt: saved.createdAt,
     };
   }
@@ -168,5 +171,29 @@ export class AuthService {
       .catch(() => {});
 
     return { userId: apiKey.userId, signingSecret: apiKey.signingSecret };
+  }
+
+  /**
+   * Resolve a direct-webhook token (from the URL) to the owning userId.
+   * Used by the MMP webhook controller — grants tracking-only access without
+   * HMAC, so the caller must keep the token secret.
+   */
+  async validateWebhookToken(token: string): Promise<string> {
+    if (!token || token.length !== 64) {
+      throw new UnauthorizedException('Invalid webhook token');
+    }
+
+    const apiKey = await this.apiKeyRepository.findOne({
+      where: { webhookToken: token },
+    });
+    if (!apiKey) {
+      throw new UnauthorizedException('Invalid webhook token');
+    }
+
+    this.apiKeyRepository
+      .update(apiKey.id, { lastUsedAt: new Date() })
+      .catch(() => {});
+
+    return apiKey.userId;
   }
 }

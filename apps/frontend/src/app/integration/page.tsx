@@ -471,8 +471,224 @@ curl -X POST https://your-api.example.com/api/conversions/track \\
               purchases), use a Mobile Measurement Partner (MMP) like{' '}
               <strong>AppsFlyer</strong>, <strong>Adjust</strong>, or{' '}
               <strong>Branch</strong>. The MMP handles attribution, fraud
-              detection, and receipt validation — your server receives verified
-              postbacks.
+              detection, and receipt validation.
+            </p>
+
+            <p>
+              We support two integration shapes. Pick based on whether you
+              already run a server that can forward postbacks:
+            </p>
+
+            <div className="bg-gray-50 border rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-gray-100">
+                    <th className="text-left p-2 font-medium">&nbsp;</th>
+                    <th className="text-left p-2 font-medium">
+                      A. Direct webhook
+                    </th>
+                    <th className="text-left p-2 font-medium">
+                      B. Forward via your server
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  <tr>
+                    <td className="p-2 font-medium">Hops</td>
+                    <td className="p-2">MMP → us</td>
+                    <td className="p-2">MMP → your server → us</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 font-medium">Auth</td>
+                    <td className="p-2">Per-key webhook token in URL</td>
+                    <td className="p-2">X-API-Key + HMAC signature</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 font-medium">Needs your server?</td>
+                    <td className="p-2">No</td>
+                    <td className="p-2">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 font-medium">Custom mapping</td>
+                    <td className="p-2">
+                      Fixed (media_source → partnerCode, etc.)
+                    </td>
+                    <td className="p-2">
+                      Arbitrary — you control the transform
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 font-medium">Best for</td>
+                    <td className="p-2">
+                      Mobile-only teams, quick setup
+                    </td>
+                    <td className="p-2">
+                      Filtering / enrichment / existing backend
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* MMP Option A: Direct webhook */}
+      <Card className="mb-6">
+        <CardHeader>
+          <h2 className="text-lg font-semibold">
+            MMP Option A — Direct webhook (no proxy)
+          </h2>
+        </CardHeader>
+        <CardBody>
+          <div className="text-sm text-gray-600 space-y-3">
+            <p>
+              Point AppsFlyer&apos;s Push API directly at our endpoint. The
+              per-key webhook token in the URL authenticates the request — no
+              HMAC, no server of your own.
+            </p>
+
+            <div>
+              <p className="font-medium text-gray-700 mb-1">Webhook URL</p>
+              <pre className="bg-gray-900 text-green-400 rounded-lg p-4 text-xs overflow-x-auto">
+{`POST https://your-api.example.com/api/webhooks/mmp/appsflyer/<webhookToken>`}
+              </pre>
+              <p className="text-xs text-gray-500 mt-1">
+                The exact URL for your account is shown on the{' '}
+                <Link
+                  href="/api-keys"
+                  className="text-indigo-600 underline"
+                >
+                  API Keys
+                </Link>{' '}
+                page when you create a key.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-gray-700 mb-1">
+                AppsFlyer dashboard setup
+              </p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Dashboard → your app → Integration → Push API</li>
+                <li>Add a new endpoint, paste the URL above</li>
+                <li>
+                  Enable events you care about: <code>install</code>,{' '}
+                  <code>af_purchase</code>, <code>af_subscribe</code>, etc.
+                </li>
+                <li>
+                  Use JSON payload format — the endpoint expects a JSON body
+                </li>
+                <li>
+                  Make sure your OneLink passes the partner code as{' '}
+                  <code>pid=&lt;code&gt;</code>; we read{' '}
+                  <code>media_source</code> as the partnerCode
+                </li>
+              </ol>
+            </div>
+
+            <div>
+              <p className="font-medium text-gray-700 mb-1">
+                Field mapping (fixed)
+              </p>
+              <div className="bg-gray-50 border rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b bg-gray-100">
+                      <th className="text-left p-2 font-medium">
+                        AppsFlyer field
+                      </th>
+                      <th className="text-left p-2 font-medium">Our field</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    <tr>
+                      <td className="p-2">
+                        <code>media_source</code>
+                      </td>
+                      <td className="p-2">
+                        <code>partnerCode</code>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2">
+                        <code>event_name</code>
+                      </td>
+                      <td className="p-2">
+                        <code>eventName</code>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2">
+                        <code>event_revenue</code>
+                      </td>
+                      <td className="p-2">
+                        <code>revenue</code> (parsed as float, 0 on miss)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2">
+                        <code>event_time</code>
+                      </td>
+                      <td className="p-2">
+                        <code>eventDate</code> (YYYY-MM-DD, UTC)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2">
+                        <code>event_id</code> ?? <code>appsflyer_id</code>
+                      </td>
+                      <td className="p-2">
+                        <code>idempotencyKey</code>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 border rounded-lg p-3 text-xs space-y-1">
+              <p>
+                <strong>Behavior:</strong> organic installs (empty{' '}
+                <code>media_source</code>) are silently skipped. We always
+                respond <code>200</code> so AppsFlyer never retries on our
+                errors — check the{' '}
+                <Link
+                  href="/conversions"
+                  className="text-indigo-600 underline"
+                >
+                  conversions
+                </Link>{' '}
+                page to verify events landed. Retries with the same{' '}
+                <code>event_id</code> are deduplicated for 24 hours.
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800">
+              <strong>Security trade-off.</strong> The webhook token is a bearer
+              secret in the URL — anyone with it can send events to your
+              account. If AppsFlyer logs URLs or the token leaks, rotate by
+              revoking the API key and creating a new one.
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* MMP Option B: Forward via own server */}
+      <Card className="mb-6">
+        <CardHeader>
+          <h2 className="text-lg font-semibold">
+            MMP Option B — Forward via your server
+          </h2>
+        </CardHeader>
+        <CardBody>
+          <div className="text-sm text-gray-600 space-y-3">
+            <p>
+              If you already run a backend, point AppsFlyer at it, run your own
+              validation or enrichment, and forward to{' '}
+              <code>/api/conversions/track</code> with HMAC. You get full
+              control over mapping and the signing secret never travels in
+              request URLs.
             </p>
 
             <div className="bg-gray-50 border rounded-lg p-4 font-mono text-xs space-y-1">
@@ -486,7 +702,7 @@ curl -X POST https://your-api.example.com/api/conversions/track \\
                 4. MMP validates attribution + runs fraud detection (Protect360)
               </p>
               <p>
-                5. MMP sends postback to your server with attribution data
+                5. MMP sends postback to <strong>your</strong> server
               </p>
               <p>
                 6. Your server calls{' '}
@@ -521,12 +737,12 @@ app.post('/webhooks/appsflyer', async (req, res) => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-blue-800 text-xs">
-                <strong>Why use an MMP?</strong> App Store and Google Play don't
+                <strong>Why use an MMP?</strong> App Store and Google Play don&apos;t
                 pass UTM parameters directly to your app. MMPs solve this by
                 using platform APIs (SKAdNetwork, Google Install Referrer) to
                 reliably attribute installs. They also detect fraudulent installs
-                (bots, device farms, click injection) before sending postbacks
-                to your server — so you only pay partners for real conversions.
+                (bots, device farms, click injection) before sending postbacks —
+                so you only pay partners for real conversions.
               </p>
             </div>
           </div>

@@ -28,6 +28,15 @@ export class ApiKeyEntity {
   @Column({ type: 'varchar', length: 64, nullable: true })
   signingSecret: string | null;
 
+  /**
+   * Plaintext token used in direct MMP webhook URLs
+   * (POST /api/webhooks/mmp/<provider>/:webhookToken).
+   * Shown to the user once at creation — grants tracking-only access with no
+   * HMAC, so it must be treated as a shared secret.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true, unique: true })
+  webhookToken: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
   lastUsedAt: Date | null;
 

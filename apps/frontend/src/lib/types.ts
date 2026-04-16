@@ -93,6 +93,7 @@ export interface ApiKeyCreated {
   name: string;
   key: string;
   signingSecret: string;
+  webhookToken: string;
   createdAt: string;
 }
 

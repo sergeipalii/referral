@@ -1,15 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { ConversionEventEntity } from './entities/conversion-event.entity';
 import { ConversionsQueryDto } from './dto/requests/conversions-query.dto';
+import { TrackConversionDto } from './dto/requests/track-conversion.dto';
 import { ConversionEventDto } from './dto/responses/conversion-event.dto';
 import { PartnerSummaryDto } from './dto/responses/partner-summary.dto';
+import { TrackResultDto } from './dto/responses/track-result.dto';
 import {
   PaginatedResponseDto,
   PaginationMetaDto,
 } from '../../common/dto/pagination-meta.dto';
 import { PartnersService } from '../partners/partners.service';
+import { AccrualRulesService } from '../accrual-rules/accrual-rules.service';
+import { IdempotencyService } from './idempotency.service';
 
 export interface UpsertConversionBucketData {
   userId: string;
@@ -28,7 +32,82 @@ export class ConversionsService {
     @InjectRepository(ConversionEventEntity)
     private readonly conversionsRepository: Repository<ConversionEventEntity>,
     private readonly partnersService: PartnersService,
+    private readonly accrualRulesService: AccrualRulesService,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
+
+  /**
+   * Full tracking pipeline: idempotency check → partner lookup → accrual
+   * calculation → additive upsert → idempotency store. Reused by both the
+   * HMAC-authenticated `/conversions/track` endpoint and the direct MMP
+   * webhook endpoints.
+   */
+  async track(userId: string, dto: TrackConversionDto): Promise<TrackResultDto> {
+    if (dto.idempotencyKey) {
+      const cached = await this.idempotencyService.check(
+        userId,
+        dto.idempotencyKey,
+      );
+      if (cached) return cached as TrackResultDto;
+    }
+
+    const partner = await this.partnersService.findByCode(
+      userId,
+      dto.partnerCode,
+    );
+    if (!partner || !partner.isActive) {
+      throw new NotFoundException(
+        `Partner with code "${dto.partnerCode}" not found`,
+      );
+    }
+
+    const eventDate = dto.eventDate ?? new Date().toISOString().slice(0, 10);
+    const count = dto.count ?? 1;
+    const revenue = dto.revenue ?? 0;
+
+    const rule = await this.accrualRulesService.findApplicableRule(
+      userId,
+      partner.id,
+      dto.eventName,
+    );
+
+    let accrualAmount = 0;
+    if (rule) {
+      if (rule.ruleType === 'fixed') {
+        accrualAmount = parseFloat(rule.amount) * count;
+      } else if (rule.ruleType === 'percentage') {
+        accrualAmount = (parseFloat(rule.amount) / 100) * revenue;
+      }
+    }
+
+    await this.addToBucket({
+      userId,
+      partnerId: partner.id,
+      eventName: dto.eventName,
+      eventDate,
+      count,
+      revenueSum: revenue,
+      accrualAmount,
+      accrualRuleId: rule?.id ?? null,
+    });
+
+    const result: TrackResultDto = {
+      success: true,
+      partnerId: partner.id,
+      eventName: dto.eventName,
+      eventDate,
+      count,
+      revenue,
+      accrualAmount: accrualAmount.toFixed(6),
+      accrualRuleId: rule?.id ?? null,
+    };
+
+    if (dto.idempotencyKey) {
+      await this.idempotencyService.store(userId, dto.idempotencyKey, result);
+    }
+
+    return result;
+  }
 
   async findAll(
     userId: string,

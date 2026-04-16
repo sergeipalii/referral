@@ -11,6 +11,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { api, ApiError } from '@/lib/api';
 import type { ApiKey, ApiKeyCreated } from '@/lib/types';
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+function buildWebhookUrl(provider: string, token: string): string {
+  return `${API_BASE}/webhooks/mmp/${provider}/${token}`;
+}
+
 export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -124,15 +131,43 @@ export default function ApiKeysPage() {
               </p>
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-yellow-700 mb-1">API Key</p>
+                  <p className="text-xs font-medium text-yellow-700 mb-1">
+                    API Key
+                  </p>
+                  <p className="text-xs text-yellow-700 mb-1">
+                    Used with{' '}
+                    <code className="bg-yellow-100 px-1 rounded">X-API-Key</code>{' '}
+                    header for server-to-server tracking.
+                  </p>
                   <code className="block text-xs bg-white border border-yellow-300 rounded p-3 break-all select-all">
                     {createdKey.key}
                   </code>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-yellow-700 mb-1">Signing Secret (for HMAC)</p>
+                  <p className="text-xs font-medium text-yellow-700 mb-1">
+                    Signing Secret (HMAC)
+                  </p>
+                  <p className="text-xs text-yellow-700 mb-1">
+                    Used to sign request bodies for the{' '}
+                    <code className="bg-yellow-100 px-1 rounded">
+                      /conversions/track
+                    </code>{' '}
+                    endpoint.
+                  </p>
                   <code className="block text-xs bg-white border border-yellow-300 rounded p-3 break-all select-all">
                     {createdKey.signingSecret}
+                  </code>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-yellow-700 mb-1">
+                    Direct MMP Webhook URL
+                  </p>
+                  <p className="text-xs text-yellow-700 mb-1">
+                    Paste into AppsFlyer → Integrations → Push API. No HMAC,
+                    no extra server needed.
+                  </p>
+                  <code className="block text-xs bg-white border border-yellow-300 rounded p-3 break-all select-all">
+                    {buildWebhookUrl('appsflyer', createdKey.webhookToken)}
                   </code>
                 </div>
               </div>
@@ -142,11 +177,15 @@ export default function ApiKeysPage() {
                 variant="secondary"
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `API Key: ${createdKey.key}\nSigning Secret: ${createdKey.signingSecret}`,
+                    [
+                      `API Key: ${createdKey.key}`,
+                      `Signing Secret: ${createdKey.signingSecret}`,
+                      `AppsFlyer Webhook URL: ${buildWebhookUrl('appsflyer', createdKey.webhookToken)}`,
+                    ].join('\n'),
                   );
                 }}
               >
-                Copy Both
+                Copy All
               </Button>
               <Button onClick={() => setCreatedKey(null)}>Done</Button>
             </div>

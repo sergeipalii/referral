@@ -1,6 +1,6 @@
 # System Overview
 
-Полное описание текущих возможностей системы. Документ отражает состояние на 2026-04-16.
+Полное описание текущих возможностей системы. Документ отражает состояние на 2026-04-17.
 
 ---
 
@@ -171,19 +171,64 @@ npm workspaces, общие зависимости в корневом `package.j
 - `GET /api/partner-portal/conversions` — пагинированный список конверсий с фильтрами. `partnerId` пинится из JWT, не принимается из query.
 - `GET /api/partner-portal/payments` — пагинированный список платежей с фильтрами.
 
+### 4.8. Подписка (SaaS billing через Stripe)
+
+Owner платит нам за использование платформы. Три тарифа с разными лимитами и фичами; бесплатный — по умолчанию, с жёсткими caps; платные (Pro, Business) — через Stripe Checkout с триалом 14 дней.
+
+**Тарифная сетка** (плейсхолдерные числа, меняются в `plans.ts`):
+
+| | Free | Pro ($49/мес) | Business ($199/мес) |
+|---|---|---|---|
+| Партнёров | 5 | 50 | ∞ |
+| Конверсий/мес | 1 000 | 50 000 | 500 000 |
+| API-ключей | 1 | 5 | ∞ |
+| Recurring-правила | ❌ | ✅ | ✅ |
+| CSV-экспорт платежей | ❌ | ✅ | ✅ |
+| Прямой MMP webhook | ❌ | ✅ | ✅ |
+| Batch pending-payouts | ❌ | ❌ | ✅ |
+| Trial | — | 14 дней | 14 дней |
+
+**Auto-bootstrap:** каждая регистрация создаёт строку `subscriptions` с `planKey='free', status='active'`. Stripe customer создаётся лениво при первом апгрейде — free-юзеры в Stripe не попадают.
+
+**Эндпоинты:**
+- `GET /api/billing/subscription` — текущий план, статус, фичи, usage против лимитов, `currentPeriodEnd`, `trialEndsAt`, `cancelAtPeriodEnd`.
+- `POST /api/billing/checkout` — создаёт Stripe Checkout Session для апгрейда на Pro/Business, возвращает hosted URL (с `automatic_tax: enabled`, `billing_address_collection: required`, trial через `subscription_data.trial_period_days`).
+- `POST /api/billing/portal` — создаёт Stripe Customer Portal сессию для смены карты / просмотра инвойсов / отмены.
+- `GET /api/billing/invoices` — список инвойсов, зеркалированных из Stripe webhook (`hostedInvoiceUrl`, `invoicePdfUrl`, period, amount).
+- `POST /api/webhooks/stripe` — публичный webhook, валидация подписи `Stripe-Signature` через raw body, дедупликация через `processed_webhook_events`. Обрабатываемые события: `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid|payment_failed|finalized|voided`. Всегда отвечает 200 на процессинговых ошибках (чтобы Stripe не ретраил), 400 только при неверной подписи.
+
+**Enforcement (PlanLimitGuard):**
+- `@RequireWithinLimit('maxPartners' | 'maxApiKeys')` — count-based гейты на `POST /partners`, `POST /auth/api-keys`.
+- `@RequireCapability('csvExport' | 'batchPayouts' | 'recurringRules' | 'mmpWebhook')` — на `GET /payments/export`, `POST /payments/batch`.
+- Recurring-правила проверяются inline в `AccrualRulesService.create/update` (зависят от body `ruleType`).
+- MMP webhook (`/api/webhooks/mmp/appsflyer/:token`) soft-reject: логирует и возвращает 200 при отсутствии capability, чтобы AppsFlyer не ретраил.
+- Ответ 402: `{error:'plan_limit', reason:'count'|'capability', requiredPlan, currentPlan, ...}`.
+
+**Cron (`BillingCronService`):**
+- `04:00 UTC` — `reconcileAllSubscriptions`: для каждой подписки с `stripeSubscriptionId` подтягивает актуальное состояние через `stripe.subscriptions.retrieve`, лечит пропущенные webhook-и.
+- `04:15 UTC` — удаляет `processed_webhook_events` старше 30 дней.
+
+**Конфиг (env):**
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` — обязательны для продакшена, optional в Joi (CI/dev бегут без них).
+- `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS` — Stripe Price id для каждого тарифа.
+- `BILLING_FRONTEND_BASE_URL` — для success/cancel URL-ов.
+
 ---
 
 ## 5. Веб-интерфейс
 
-### Раздел владельца (`/`, `/partners`, `/rules`, `/conversions`, `/payments`, `/api-keys`, `/integration`)
+### Раздел владельца (`/`, `/partners`, `/rules`, `/conversions`, `/payments`, `/api-keys`, `/integration`, `/billing`)
 
-- Боковая навигация + JWT-контекст.
+- Боковая навигация + JWT-контекст. Внизу сайдбара — `PlanBadge` с текущим тарифом и ссылкой на `/billing`.
+- Поверх всего раздела — глобальный `UpgradeModalHost`: перехватывает любые 402 от API и показывает plan-aware модалку с CTA «Upgrade to <plan>», ведущим на Stripe Checkout.
+- `PastDueBanner` (красная полоса) в `DashboardShell` при `subscription.status IN ('past_due', 'unpaid')`.
 - Страница **Partners** — список с инвайт-статусом, детали, создание/редактирование/деактивация, выдача инвайт-ссылок с кнопкой копирования.
 - Страница **Accrual Rules** — CRUD правил, форма переключает 4 типа, для recurring — чекбокс «Limit attribution window» и поле месяцев.
 - Страница **Conversions** — список событий с карточками сводки по партнёрам, фильтры по партнёру и датам.
 - Страница **Payments** — список платежей, ручная запись, кнопки `Export CSV` (с текущими фильтрами) и `Generate pending payouts` (модалка с periodStart/End, minAmount, reference).
 - Страница **API Keys** — создание ключей; после создания показываются `key`, `signingSecret`, готовый **MMP webhook URL** — всё единоразово, с кнопкой Copy All.
 - Страница **Integration** — документация: сценарии (прямой S2S, Shopify-подобный, MMP), пример кода на Node/Python/curl для HMAC, инструкции для AppsFlyer Push API (оба варианта: прямой webhook и forwarding), секция про recurring commissions.
+- Страница **Billing** — карточки plan+status+priceCents, прогресс-бары usage (partners / api-keys / conversions за период), список фич плана, кнопки Upgrade to Pro / Upgrade to Business / Manage payment method (редиректят через Stripe Checkout / Customer Portal). При возврате с `?checkout=success|cancelled` показывает ин-апп баннер. Таблица Billing history со ссылками на `hostedInvoiceUrl` и `invoicePdfUrl`.
 
 ### Раздел партнёра (`/partner/*`)
 
@@ -211,13 +256,17 @@ npm workspaces, общие зависимости в корневом `package.j
 | `conversion_events` | Агрегаты по (userId, partnerId, eventName, eventDate) |
 | `idempotency_keys` | TTL-записи для идемпотентности track-ивентов (24 ч) |
 | `user_attributions` | First-touch мэппинг externalUserId → partnerId |
-| `payments` | Учёт фактических выплат |
+| `payments` | Учёт фактических выплат партнёрам |
+| `subscriptions` | SaaS-подписка владельца (plan / status / Stripe ids / period) — 1:1 с `users` |
+| `invoices` | Зеркало инвойсов из Stripe (для UI Billing history) |
+| `processed_webhook_events` | Idempotency-ledger для webhook-ов Stripe (UNIQUE(stripeEventId), cleanup >30 дней) |
 
 Миграции хранятся в `apps/backend/src/migrations/`, применяются в порядке timestamps. Последние:
 - `AddApiKeyWebhookToken` — токен для прямого MMP-webhook.
 - `AddPartnerCredentials` — поля кабинета партнёра.
 - `AddPartnerPayoutDetails` — payoutDetails jsonb.
 - `AddRecurringAttribution` — `recurrenceDurationMonths` + таблица `user_attributions`.
+- `AddBilling` — `subscriptions`, `invoices`, `processed_webhook_events` + idempotent backfill: каждому существующему пользователю создаётся free-подписка.
 
 ---
 
@@ -225,7 +274,7 @@ npm workspaces, общие зависимости в корневом `package.j
 
 End-to-end тестами на Jest + supertest, работающие против реального Postgres с `synchronize: true`.
 
-Текущий прогон: **5 сьютов, 73 теста, все проходят.**
+Текущий прогон: **8 сьютов, 93 теста, все проходят.**
 
 | Сьют | Тестов | Покрытие |
 |---|---|---|
@@ -234,8 +283,13 @@ End-to-end тестами на Jest + supertest, работающие проти
 | `partner-auth.e2e-spec.ts` | 22 | Invite/accept/login/refresh, self, updateSelf, revoke, cross-tenant isolation |
 | `recurring-commissions.e2e-spec.ts` | 11 | First-touch, window enforcement, race safety, non-recurring coexistence |
 | `payments-batch-export.e2e-spec.ts` | 10 | Batch eligibility, minAmount, partnerIds, CSV header/escaping |
+| `billing-subscription.e2e-spec.ts` | 6 | Auto-create free sub on register, usage счётчики, cross-tenant isolation |
+| `billing-gates.e2e-spec.ts` | 9 | 402 на cap-достижении (partners, api keys), feature-gate 402 (CSV, batch, recurring), апгрейд снимает gate |
+| `billing-stripe-webhook.e2e-spec.ts` | 5 | Webhook idempotency (дубль event.id игнорируется), upsert subscription статус/period/cancel, canceled → free, unknown customer безопасно игнорируется |
 
 Запуск: `npm -w @referral-system/backend run test:e2e` (использует `--runInBand` так как сьюты делят одну БД).
+
+Тестовый helper `setTenantPlan(app, userId, planKey)` позволяет сьютам, проверяющим фичи поверх гейтов, обходить лимиты через прямое UPDATE в таблицу `subscriptions` — без Stripe-моков.
 
 ---
 
@@ -249,17 +303,19 @@ End-to-end тестами на Jest + supertest, работающие проти
 - Две схемы MMP-интеграции (прямой webhook + HMAC forwarding).
 - Multi-tenant на уровне БД.
 - Rate limiting + идемпотентность на трекинг-эндпоинте.
+- **SaaS-подписка через Stripe Billing** (Free / Pro / Business), Checkout + Customer Portal, PlanLimitGuard с 402-ответами, reconcile + cleanup cron, webhook-идемпотентность, зеркалированные инвойсы и past-due баннер.
 
 **Что не реализовано** (спроектировано, см. отдельные research-документы):
 - Промокоды как метод атрибуции (`docs/research-promo-codes.md`).
 - Click tracking + attribution window для web (`docs/research-click-tracking.md`).
 
 **Что сознательно не входит в scope:**
-- Автоматические выплатные рельсы (Stripe Connect / Wise / PayPal). Выплаты исполняются финотделом клиента вне системы; CSV-экспорт — интерфейс передачи.
+- Автоматические выплатные рельсы **партнёрам** (Stripe Connect / Wise / PayPal Payouts). Выплаты партнёрам исполняются финотделом клиента вне системы; CSV-экспорт — интерфейс передачи. Stripe Billing у нас — это подписка **владельца на нашу платформу**, не маршрутизация выплат.
 - Скидочная логика промокодов / корзины / checkout. Это задача e-commerce платформы клиента.
 - Cross-device attribution, view-through attribution, fraud-детект. На мобайле эти задачи решает подключённый MMP (AppsFlyer и т.п.).
 - Собственный MMP — не замещаем AppsFlyer/Adjust/Branch, а принимаем от них постбэки.
 - Партнёрский onboarding-поток (публичная форма заявки, модерация) — партнёров заводит владелец вручную.
+- Multi-currency / team seats / usage-based billing — текущая подписка в USD, single-seat, flat-tier. Расширять при появлении рыночного сигнала.
 
 ---
 
@@ -284,3 +340,21 @@ docker compose up -d --build
 - Backend контейнер запускает `npm run migration:run && node dist/main` — миграции применяются автоматически.
 - Frontend собирается с `NEXT_PUBLIC_API_URL` из build args (прописан в `docker-compose.yml`). Флаг `--build` обязателен при изменениях на фронте.
 - HTTP-порты (внутри): backend 3001, frontend 3000; проброшены на host как `127.0.0.1:3011` и `127.0.0.1:3010` (внешние прокси типа Caddy/nginx должны проксировать на эти адреса).
+
+**Stripe (для боевого включения биллинга):**
+
+Добавить в `apps/backend/.env`:
+```
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_PRO=price_...
+STRIPE_PRICE_BUSINESS=price_...
+BILLING_FRONTEND_BASE_URL=https://ref.palii.me
+```
+
+В Stripe Dashboard:
+1. Создать два `Price` для Pro и Business (monthly recurring, USD).
+2. Integrations → Webhooks → `https://api.ref.palii.me/api/webhooks/stripe`, события: `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid|payment_failed|finalized|voided`. Взять `STRIPE_WEBHOOK_SECRET` со страницы webhook-а.
+3. Tax → включить Stripe Tax (для `automatic_tax: enabled` в Checkout).
+
+Без этих переменных free-план-путь продолжает работать (read-only /billing + гейты 402), но кнопки Upgrade / Manage, приём webhook-ов и reconcile-cron возвращают 503.

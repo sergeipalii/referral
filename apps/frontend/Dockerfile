@@ -18,6 +18,10 @@ COPY package.json package-lock.json tsconfig.json ./
 COPY apps/backend/package.json ./apps/backend/package.json
 COPY apps/frontend/package.json ./apps/frontend/package.json
 COPY apps/frontend ./apps/frontend
+# The /system-overview page reads this .md at build time (next build) so
+# the content is statically embedded into the Next.js output. No runtime
+# file access needed — only visible during build.
+COPY docs ./docs
 RUN npm -w @referral-system/frontend run build
 
 FROM node:20-alpine AS runtime

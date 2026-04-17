@@ -63,20 +63,30 @@ export default function LandingPage() {
           and a self-service partner portal — all in one place.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-          <Link href="/register">
-            <Button size="lg" className="w-full sm:w-auto">
-              Start for free
-            </Button>
-          </Link>
+          {user ? (
+            <Link href="/partners">
+              <Button size="lg" className="w-full sm:w-auto">
+                Go to dashboard
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/register">
+              <Button size="lg" className="w-full sm:w-auto">
+                Start for free
+              </Button>
+            </Link>
+          )}
           <a href="#pricing">
             <Button variant="secondary" size="lg" className="w-full sm:w-auto">
               See pricing
             </Button>
           </a>
         </div>
-        <p className="mt-4 text-xs text-gray-500">
-          Free forever for small programs. No credit card required.
-        </p>
+        {!user && (
+          <p className="mt-4 text-xs text-gray-500">
+            Free forever for small programs. No credit card required.
+          </p>
+        )}
       </section>
 
       {/* ── Social proof strip ──────────────────────────────────────────── */}
@@ -220,15 +230,21 @@ POST https://api.example.com/api/webhooks/mmp/
             minutes. Free forever for small programs — upgrade anytime.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-            {/* Plain styled links — avoids Tailwind v4 specificity
-                conflicts between Button variant classes and overrides
-                on a non-standard background. */}
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-lg bg-white px-6 py-3 text-base font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
-            >
-              Create free account
-            </Link>
+            {user ? (
+              <Link
+                href="/partners"
+                className="inline-flex items-center justify-center rounded-lg bg-white px-6 py-3 text-base font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+              >
+                Go to dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center rounded-lg bg-white px-6 py-3 text-base font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+              >
+                Create free account
+              </Link>
+            )}
             <a
               href="#pricing"
               className="inline-flex items-center justify-center rounded-lg border border-white/30 px-6 py-3 text-base font-medium text-white hover:bg-indigo-500 transition-colors"

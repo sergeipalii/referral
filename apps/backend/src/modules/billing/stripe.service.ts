@@ -51,7 +51,8 @@ export class StripeService {
 
   // ─── Customer ────────────────────────────────────────────────────────
 
-  createCustomer(userId: string, email: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createCustomer(userId: string, email: string): Promise<any> {
     return this.stripe.customers.create({
       email,
       // `userId` lives in metadata so a Stripe dashboard user can find our
@@ -62,12 +63,13 @@ export class StripeService {
 
   // ─── Checkout + Portal ───────────────────────────────────────────────
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createCheckoutSession(args: {
     customerId: string;
     planKey: Exclude<PlanKey, 'free'>;
     successUrl: string;
     cancelUrl: string;
-  }) {
+  }): Promise<any> {
     const plan = getPlan(args.planKey);
     const priceEnv = plan.stripePriceEnv;
     if (!priceEnv) {
@@ -101,7 +103,8 @@ export class StripeService {
     });
   }
 
-  createPortalSession(args: { customerId: string; returnUrl: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createPortalSession(args: { customerId: string; returnUrl: string }): Promise<any> {
     return this.stripe.billingPortal.sessions.create({
       customer: args.customerId,
       return_url: args.returnUrl,
@@ -115,7 +118,8 @@ export class StripeService {
    * be the exact bytes Stripe POSTed — otherwise signature verification
    * fails. NestJS provides this via `req.rawBody` (enabled in main.ts).
    */
-  constructWebhookEvent(rawBody: Buffer, signature: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructWebhookEvent(rawBody: Buffer, signature: string): any {
     const secret = this.config.get<string>('stripe.webhookSecret');
     if (!secret) {
       throw new ServiceUnavailableException(
@@ -125,11 +129,13 @@ export class StripeService {
     return this.stripe.webhooks.constructEvent(rawBody, signature, secret);
   }
 
-  retrieveSubscription(stripeSubscriptionId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  retrieveSubscription(stripeSubscriptionId: string): Promise<any> {
     return this.stripe.subscriptions.retrieve(stripeSubscriptionId);
   }
 
-  retrieveInvoice(stripeInvoiceId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  retrieveInvoice(stripeInvoiceId: string): Promise<any> {
     return this.stripe.invoices.retrieve(stripeInvoiceId);
   }
 }

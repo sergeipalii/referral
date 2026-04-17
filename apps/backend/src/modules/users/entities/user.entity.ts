@@ -20,6 +20,11 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   name: string | null;
 
+  /** How many days a click remains valid for conversion attribution.
+   *  Default 30 — the industry standard. Configurable per tenant. */
+  @Column({ type: 'int', default: 30 })
+  attributionWindowDays: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

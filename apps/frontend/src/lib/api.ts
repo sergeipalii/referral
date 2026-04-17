@@ -401,6 +401,116 @@ class ApiClient {
     return this.delete(`/auth/api-keys/${id}`);
   }
 
+  // Promo codes
+  createPromoCode(data: {
+    partnerId: string;
+    code: string;
+    usageLimit?: number | null;
+  }) {
+    return this.post<{
+      id: string;
+      partnerId: string;
+      code: string;
+      usageLimit: number | null;
+      usedCount: number;
+      isActive: boolean;
+      createdAt: string;
+    }>('/promo-codes', data);
+  }
+
+  getPromoCodes(partnerId?: string) {
+    const q = new URLSearchParams();
+    if (partnerId) q.set('partnerId', partnerId);
+    return this.get<
+      {
+        id: string;
+        partnerId: string;
+        code: string;
+        usageLimit: number | null;
+        usedCount: number;
+        isActive: boolean;
+        createdAt: string;
+      }[]
+    >(`/promo-codes?${q}`);
+  }
+
+  deletePromoCode(id: string) {
+    return this.delete(`/promo-codes/${id}`);
+  }
+
+  // Analytics
+  getAnalyticsKpis(params?: { dateFrom?: string; dateTo?: string }) {
+    const q = new URLSearchParams();
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    return this.get<{
+      totalConversions: number;
+      totalRevenue: string;
+      totalAccrual: string;
+      totalPaid: string;
+      prev: {
+        totalConversions: number;
+        totalRevenue: string;
+        totalAccrual: string;
+        totalPaid: string;
+      };
+    }>(`/analytics/kpis?${q}`);
+  }
+
+  getAnalyticsTimeseries(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+    partnerId?: string;
+    eventName?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    if (params?.partnerId) q.set('partnerId', params.partnerId);
+    if (params?.eventName) q.set('eventName', params.eventName);
+    return this.get<
+      { date: string; conversions: number; revenue: string; accrual: string }[]
+    >(`/analytics/timeseries?${q}`);
+  }
+
+  getAnalyticsTopPartners(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    if (params?.limit) q.set('limit', String(params.limit));
+    return this.get<
+      {
+        partnerId: string;
+        partnerName: string;
+        partnerCode: string;
+        conversions: number;
+        revenue: string;
+        accrual: string;
+      }[]
+    >(`/analytics/top-partners?${q}`);
+  }
+
+  getAnalyticsEventBreakdown(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    return this.get<
+      {
+        eventName: string;
+        conversions: number;
+        revenue: string;
+        accrual: string;
+      }[]
+    >(`/analytics/event-breakdown?${q}`);
+  }
+
   // Billing
   getSubscription() {
     return this.get<SubscriptionView>('/billing/subscription');

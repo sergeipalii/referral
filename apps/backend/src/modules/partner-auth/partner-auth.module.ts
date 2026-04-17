@@ -8,6 +8,8 @@ import { AuthModule } from '../auth/auth.module';
 import { PartnersModule } from '../partners/partners.module';
 import { ConversionsModule } from '../conversions/conversions.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
+import { PromoCodesModule } from '../promo-codes/promo-codes.module';
 import { PartnerAuthController } from './partner-auth.controller';
 import { PartnerPortalController } from './partner-portal.controller';
 import { PartnerAuthService } from './partner-auth.service';
@@ -34,6 +36,8 @@ import { PartnerJwtAuthGuard } from './guards/partner-jwt-auth.guard';
     PartnersModule,
     ConversionsModule,
     PaymentsModule,
+    AnalyticsModule,
+    PromoCodesModule,
   ],
   controllers: [PartnerAuthController, PartnerPortalController],
   providers: [PartnerAuthService, PartnerJwtStrategy, PartnerJwtAuthGuard],

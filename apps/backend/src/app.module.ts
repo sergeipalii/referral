@@ -17,6 +17,9 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { UserAttributionsModule } from './modules/user-attributions/user-attributions.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { PromoCodesModule } from './modules/promo-codes/promo-codes.module';
+import { ClicksModule } from './modules/clicks/clicks.module';
 
 @Module({
   imports: [
@@ -54,6 +57,9 @@ import { BillingModule } from './modules/billing/billing.module';
     PaymentsModule,
     WebhooksModule,
     BillingModule,
+    AnalyticsModule,
+    PromoCodesModule,
+    ClicksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -24,6 +24,8 @@ import {
 import { IdempotencyService } from './idempotency.service';
 import { UserAttributionsService } from '../user-attributions/user-attributions.service';
 import { UserAttributionEntity } from '../user-attributions/entities/user-attribution.entity';
+import { PromoCodesService } from '../promo-codes/promo-codes.service';
+import { ClicksService } from '../clicks/clicks.service';
 
 export interface UpsertConversionBucketData {
   userId: string;
@@ -62,6 +64,8 @@ export class ConversionsService {
     private readonly accrualRulesService: AccrualRulesService,
     private readonly idempotencyService: IdempotencyService,
     private readonly userAttributionsService: UserAttributionsService,
+    private readonly promoCodesService: PromoCodesService,
+    private readonly clicksService: ClicksService,
   ) {}
 
   /**
@@ -98,12 +102,64 @@ export class ConversionsService {
     let partnerId: string;
     if (attribution) {
       partnerId = attribution.partnerId;
-    } else {
-      if (!dto.partnerCode) {
-        throw new BadRequestException(
-          'Provide partnerCode (first conversion) or externalUserId with an existing attribution',
+    } else if (dto.promoCode) {
+      // ── Promo code resolution (highest priority after attribution) ────
+      // Atomically increments usedCount and auto-deactivates on limit.
+      const resolved = await this.promoCodesService.resolveAndIncrement(
+        userId,
+        dto.promoCode,
+      );
+      if (!resolved) {
+        throw new NotFoundException(
+          `Promo code "${dto.promoCode}" not found or exhausted`,
         );
       }
+      partnerId = resolved.partnerId;
+
+      if (dto.externalUserId) {
+        attribution = await this.userAttributionsService.getOrCreate(
+          userId,
+          dto.externalUserId,
+          partnerId,
+          new Date(),
+        );
+        partnerId = attribution.partnerId;
+      }
+    } else if (dto.clickId) {
+      // ── Click-based resolution ──────────────────────────────────────
+      const click = await this.clicksService.findValid(userId, dto.clickId);
+      if (!click) {
+        // Expired or unknown click — fall through to partnerCode if present
+        if (dto.partnerCode) {
+          const partner = await this.partnersService.findByCode(
+            userId,
+            dto.partnerCode,
+          );
+          if (!partner || !partner.isActive) {
+            throw new NotFoundException(
+              `Partner with code "${dto.partnerCode}" not found`,
+            );
+          }
+          partnerId = partner.id;
+        } else {
+          throw new BadRequestException(
+            'Click has expired and no fallback partnerCode provided',
+          );
+        }
+      } else {
+        partnerId = click.partnerId;
+      }
+
+      if (dto.externalUserId) {
+        attribution = await this.userAttributionsService.getOrCreate(
+          userId,
+          dto.externalUserId,
+          partnerId,
+          new Date(),
+        );
+        partnerId = attribution.partnerId;
+      }
+    } else if (dto.partnerCode) {
       const partner = await this.partnersService.findByCode(
         userId,
         dto.partnerCode,
@@ -115,7 +171,6 @@ export class ConversionsService {
       }
       partnerId = partner.id;
 
-      // Establish first-touch attribution if we have an externalUserId.
       if (dto.externalUserId) {
         attribution = await this.userAttributionsService.getOrCreate(
           userId,
@@ -123,10 +178,12 @@ export class ConversionsService {
           partnerId,
           new Date(),
         );
-        // getOrCreate may return a pre-existing row (race with another event
-        // on the same user) — respect that and switch back to its partner.
         partnerId = attribution.partnerId;
       }
+    } else {
+      throw new BadRequestException(
+        'Provide partnerCode, promoCode, or externalUserId with an existing attribution',
+      );
     }
 
     const eventDate = dto.eventDate ?? new Date().toISOString().slice(0, 10);

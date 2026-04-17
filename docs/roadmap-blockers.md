@@ -46,35 +46,33 @@
 
 ## 3. Промокоды как метод атрибуции
 
-**Статус:** TODO
+**Статус:** DONE
 **Блокирует:** e-commerce сегмент.
 
-Сейчас `partnerCode` передаётся в теле события, что требует от клиента самому хранить связь «юзер ↔ партнёр». Для e-commerce это не подходит: покупатель вводит **промокод** на чек-ауте, и именно по нему определяется партнёр.
-
-**Скоуп MVP:**
-- Новая сущность `PromoCodeEntity` (userId, partnerId, code, discount?, isActive, usageLimit?, usedCount).
-- Эндпоинт `GET /api/promo-codes/resolve?code=ALICE10` — публичный, возвращает `{ partnerId, partnerCode, discount }`. Используется на чек-ауте.
-- `POST /api/conversions/track` принимает либо `partnerCode`, либо `promoCode` — сервис резолвит промокод в партнёра.
-- В UI партнёрского кабинета: «мой промокод», возможность сгенерировать/увидеть.
-- В UI владельца: CRUD промокодов, привязка к партнёру, статистика использования.
-
-**Зависимости:** нет (но естественно объединяется с пунктом 1 для UX партнёра).
+**Реализовано:**
+- `PromoCodeEntity` (userId, partnerId, code lowercase, usageLimit, usedCount, metadata, isActive).
+- Owner CRUD: `POST/GET/PATCH/DELETE /promo-codes` (JWT).
+- Integration resolve: `GET /promo-codes/resolve?code=` (ApiKeyAuthGuard) — возвращает `{ partnerId, partnerCode }`.
+- `POST /conversions/track` принимает `promoCode` — резолвит партнёра, атомарно инкрементирует `usedCount`, auto-deactivates на лимите.
+- Partner portal: `GET /partner-portal/promo-codes` (read-only список кодов партнёра).
+- Case-insensitive (хранится lowercase).
+- Priority: `promoCode` > `clickId` > `partnerCode`.
 
 ---
 
 ## 4. Click tracking + attribution window
 
-**Статус:** TODO
+**Статус:** DONE
 **Блокирует:** web-сегмент (без мобильного MMP).
 
-Для web-случаев (реферальная ссылка на сайт → регистрация через N дней) нужен слой кликов, иначе клиент должен сам городить cookie-логику. Для мобайла эту задачу решает AppsFlyer, здесь — мы.
-
-**Скоуп MVP:**
-- Новая сущность `ClickEntity` (userId, partnerId, clickId uuid, createdAt, expiresAt, ip?, userAgent?, referer?, landingUrl?).
-- Публичный эндпоинт `GET /api/r/:partnerCode` — пишет клик, ставит cookie `rk_click=<clickId>` с TTL из настроек окна атрибуции (по умолчанию 30 дней), делает 302-редирект на указанный landing.
-- Трекинг: `POST /api/conversions/track` принимает `clickId` вместо `partnerCode` — сервис находит клик и матчит.
-- Настройка окна атрибуции на уровне владельца (глобально) или партнёра (override).
-- Self-referral protection: клиент передаёт `externalUserId`, мы не засчитываем, если партнёр сам инициатор конверсии (если известен).
+**Реализовано:**
+- `ClickEntity` (userId, partnerId, createdAt, expiresAt, ip, userAgent, referer, landingUrl).
+- Per-tenant `attributionWindowDays` на `users` (default 30 дней).
+- Redirect: `GET /api/r/:partnerCode?to=<url>` — публичный, пишет click, ставит cookie `rk_click`, 302-редирект. Безопасный fallback при несуществующем коде.
+- First-party: `POST /api/clicks` — публичный, возвращает `{ clickId, expiresAt }`, клиент сам ставит cookie на своём домене.
+- `POST /conversions/track` принимает `clickId` — ищет click в пределах окна атрибуции, резолвит partnerId. При expired click — fallback на partnerCode если передан.
+- Cron cleanup: `04:30 UTC` — удаляет clicks expired > 7 дней.
+- Global partner lookup (`findByCodeGlobal`) для public-endpoints без tenant-контекста.
 
 **Зависимости:** нет.
 
@@ -104,8 +102,8 @@
 
 1. ✅ Пункт **1** — партнёрский кабинет (фундамент).
 2. ✅ Пункт **2** — payout details + CSV + batch.
-3. Пункт **3** — промокоды (открывает e-commerce).
-4. Пункт **4** — click tracking + attribution window (открывает web без MMP).
+3. ✅ Пункт **3** — промокоды (открывает e-commerce).
+4. ✅ Пункт **4** — click tracking + attribution window (открывает web без MMP).
 5. ✅ Пункт **5** — recurring commissions (открывает SaaS).
 
-Осталось: пункты 3 и 4 (независимы между собой).
+**Все пять пунктов закрыты.** Дополнительно реализованы: SaaS billing (Stripe), аналитический дашборд, лендинг с pricing.

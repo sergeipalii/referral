@@ -31,6 +31,25 @@ export class TrackConversionDto {
   @MaxLength(255)
   externalUserId?: string;
 
+  @ApiPropertyOptional({
+    example: 'ALICE10',
+    description:
+      'Promo code entered at checkout. If valid, overrides partnerCode — the code\'s associated partner gets credit. Case-insensitive.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  promoCode?: string;
+
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description:
+      'Click ID from the tracking link cookie (rk_click). Resolves partner from the stored click if the attribution window is still open.',
+  })
+  @IsOptional()
+  @IsString()
+  clickId?: string;
+
   @ApiProperty({ example: 'signup', description: 'Event name' })
   @IsString()
   @IsNotEmpty()

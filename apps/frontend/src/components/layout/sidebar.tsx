@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { PlanBadge } from '@/components/billing/plan-badge';
 
 const navItems = [
+  { href: '/analytics', label: 'Analytics', icon: 'A' },
   { href: '/partners', label: 'Partners', icon: 'P' },
   { href: '/rules', label: 'Accrual Rules', icon: 'R' },
   { href: '/conversions', label: 'Conversions', icon: 'C' },

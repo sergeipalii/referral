@@ -71,6 +71,16 @@ export class PartnersService {
     return this.partnersRepository.findOne({ where: { userId, code } });
   }
 
+  /**
+   * Lookup partner by code without knowing the tenant. Used by the public
+   * click redirect endpoint where we don't have a userId upfront. Since
+   * partner codes are auto-generated 8-hex-char random values, collisions
+   * across tenants are astronomically unlikely.
+   */
+  async findByCodeGlobal(code: string): Promise<PartnerEntity | null> {
+    return this.partnersRepository.findOne({ where: { code } });
+  }
+
   async create(userId: string, dto: CreatePartnerDto): Promise<PartnerDto> {
     const code = await this.generateUniqueCode(userId);
     const partner = this.partnersRepository.create({ ...dto, code, userId });

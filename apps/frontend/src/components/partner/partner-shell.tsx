@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 
 const navItems = [
   { href: '/partner', label: 'Dashboard', icon: 'D', exact: true },
+  { href: '/partner/analytics', label: 'Analytics', icon: 'A' },
   { href: '/partner/conversions', label: 'Conversions', icon: 'C' },
   { href: '/partner/payments', label: 'Payments', icon: '$' },
   { href: '/partner/settings', label: 'Settings', icon: 'S' },

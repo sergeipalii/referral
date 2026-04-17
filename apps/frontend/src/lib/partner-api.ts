@@ -154,6 +154,54 @@ class PartnerApiClient {
     );
   }
 
+  // ─── Promo codes (read-only) ─────────────────────────────────────
+
+  getPromoCodes() {
+    return this.request<
+      {
+        id: string;
+        code: string;
+        usageLimit: number | null;
+        usedCount: number;
+        isActive: boolean;
+        createdAt: string;
+      }[]
+    >('/partner-portal/promo-codes');
+  }
+
+  // ─── Analytics ─────────────────────────────────────────────────────
+
+  getAnalyticsTimeseries(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+    eventName?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    if (params?.eventName) q.set('eventName', params.eventName);
+    return this.request<
+      { date: string; conversions: number; revenue: string; accrual: string }[]
+    >(`/partner-portal/analytics/timeseries?${q}`);
+  }
+
+  getAnalyticsEventBreakdown(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params?.dateTo) q.set('dateTo', params.dateTo);
+    return this.request<
+      {
+        eventName: string;
+        conversions: number;
+        revenue: string;
+        accrual: string;
+      }[]
+    >(`/partner-portal/analytics/event-breakdown?${q}`);
+  }
+
   getPayments(params?: {
     page?: number;
     limit?: number;

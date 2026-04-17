@@ -9,6 +9,8 @@ import { PartnersModule } from '../partners/partners.module';
 import { AccrualRulesModule } from '../accrual-rules/accrual-rules.module';
 import { AuthModule } from '../auth/auth.module';
 import { UserAttributionsModule } from '../user-attributions/user-attributions.module';
+import { PromoCodesModule } from '../promo-codes/promo-codes.module';
+import { ClicksModule } from '../clicks/clicks.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { UserAttributionsModule } from '../user-attributions/user-attributions.m
     AccrualRulesModule,
     AuthModule,
     UserAttributionsModule,
+    PromoCodesModule,
+    ClicksModule,
   ],
   controllers: [ConversionsController],
   providers: [ConversionsService, IdempotencyService],

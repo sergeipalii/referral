@@ -1,21 +1,41 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api';
 
 export default function RegisterPage() {
+  // useSearchParams needs Suspense in App Router.
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const { register } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // If the landing page sent the user here with ?plan=pro or ?plan=business,
+  // after registration we redirect to /billing?upgrade=<plan> which will
+  // auto-start the Stripe Checkout flow. For plain registration (no plan
+  // param) we go straight to the dashboard.
+  const targetPlan = searchParams.get('plan');
+  const postRegisterUrl =
+    targetPlan === 'pro' || targetPlan === 'business'
+      ? `/billing?upgrade=${targetPlan}`
+      : '/partners';
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,7 +43,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(email, password, name || undefined);
-      router.push('/partners');
+      router.push(postRegisterUrl);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed');
     } finally {
@@ -34,6 +54,12 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
+        <Link
+          href="/"
+          className="block text-center text-lg font-bold text-indigo-600 mb-6"
+        >
+          Referral System
+        </Link>
         <h1 className="text-2xl font-bold text-center text-gray-900">
           Create account
         </h1>
@@ -46,8 +72,15 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+        {targetPlan && (
+          <p className="mt-3 text-center text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
+            After registration you&apos;ll be redirected to start your{' '}
+            <strong>{targetPlan === 'pro' ? 'Pro' : 'Business'}</strong> free
+            trial.
+          </p>
+        )}
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           {error && (
             <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
               {error}

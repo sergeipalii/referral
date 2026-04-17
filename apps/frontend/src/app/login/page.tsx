@@ -33,6 +33,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
+        <Link
+          href="/"
+          className="block text-center text-lg font-bold text-indigo-600 mb-6"
+        >
+          Referral System
+        </Link>
         <h1 className="text-2xl font-bold text-center text-gray-900">
           Sign in
         </h1>

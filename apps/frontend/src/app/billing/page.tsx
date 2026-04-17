@@ -88,6 +88,27 @@ function BillingPageBody() {
         message: 'Checkout cancelled. Your plan was not changed.',
       });
     }
+
+    // Auto-upgrade flow: the register page redirects here with ?upgrade=pro
+    // (or business) for guests who clicked a paid-plan CTA on the landing
+    // page. We start Stripe Checkout immediately so the user goes from
+    // registration → Stripe in one smooth redirect chain.
+    const upgradeTarget = searchParams.get('upgrade');
+    if (upgradeTarget === 'pro' || upgradeTarget === 'business') {
+      api
+        .createCheckout(upgradeTarget)
+        .then((res) => {
+          window.location.href = res.url;
+        })
+        .catch(() => {
+          // Stripe not configured (dev) or transient error — fall through
+          // to the normal billing page so the user can retry manually.
+          setBanner({
+            tone: 'warn',
+            message: `Could not start ${upgradeTarget === 'pro' ? 'Pro' : 'Business'} checkout automatically. Use the Upgrade button below.`,
+          });
+        });
+    }
   }, [searchParams]);
 
   useEffect(() => {

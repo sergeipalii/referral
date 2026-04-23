@@ -316,7 +316,7 @@ POST https://api.example.com/api/webhooks/mmp/
             <span className="text-sm text-gray-500">
               Referral System &copy; {new Date().getFullYear()}
             </span>
-            <nav className="flex gap-6 text-sm text-gray-500">
+            <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-500">
               <Link href="/system-overview" className="hover:text-gray-900">
                 Documentation
               </Link>
@@ -325,6 +325,12 @@ POST https://api.example.com/api/webhooks/mmp/
               </Link>
               <Link href="/register" className="hover:text-gray-900">
                 Register
+              </Link>
+              <Link href="/terms" className="hover:text-gray-900">
+                Terms
+              </Link>
+              <Link href="/privacy" className="hover:text-gray-900">
+                Privacy
               </Link>
             </nav>
           </div>

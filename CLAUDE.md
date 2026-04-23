@@ -102,3 +102,35 @@ API keys are stored as SHA-256 hashes; the raw key is shown only once at creatio
 - Global `ValidationPipe` with `whitelist: true` and `forbidNonWhitelisted: true`.
 - Pagination uses the shared `PaginatedResponseDto<T>` + `PaginationMetaDto` from `apps/backend/src/common/dto/pagination-meta.dto.ts`.
 - Type aliases (e.g., `RuleType`, `PaymentStatus`) must use `import type` in DTO files due to `isolatedModules: true` + `emitDecoratorMetadata`.
+
+## Backups & DB admin
+
+### Backups
+Postgres is backed up hourly via `restic` to Backblaze B2 with tiered
+retention (24 hourly, 7 daily, 4 weekly, 12 monthly). All scripts live
+under `ops/backup/`:
+
+- `backup.sh` — hourly full `pg_dump -Fc` → restic
+- `schema-dump.sh` — nightly schema-only dump
+- `prune.sh` — weekly retention enforcement
+- `restore-test.sh` — monthly end-to-end restore verification
+- `crontab.example` — ready-to-install cron entries (UTC)
+
+Alerting via healthchecks.io. Env vars: `BACKUP_RESTIC_*`, `BACKUP_B2_*`,
+`BACKUP_HEALTHCHECK_*` — see `.env.example`. Full operator runbook in
+`ops/backup/README.md`.
+
+### DB admin (Adminer)
+GUI browser for the DB, gated behind the `ops` compose profile so it does
+not start with `docker compose up`:
+
+```bash
+docker compose --profile ops up -d adminer
+# local dev
+open http://127.0.0.1:8081
+# prod: SSH tunnel first
+ssh -L 8081:127.0.0.1:8081 prod-host
+```
+
+Credentials come from `.env`. Never expose Adminer on the public internet —
+the bind is `127.0.0.1:8081` on purpose.

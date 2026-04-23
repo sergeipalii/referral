@@ -12,7 +12,7 @@ Five hard blockers open. Estimated path to first paying customer: **6-8 working 
 
 ## Hard blockers
 
-### 1. Terms of Service + Privacy Policy — missing
+### 1. Terms of Service + Privacy Policy — **partially done (2026-04-23)**
 
 Frontend has no `/terms` or `/privacy` pages. This is not cosmetic:
 
@@ -22,11 +22,34 @@ Frontend has no `/terms` or `/privacy` pages. This is not cosmetic:
 
 **Scope.** Generate ToS and Privacy from a reputable template (termly.io, iubenda, or GPT-drafted and reviewed). Add `/terms` and `/privacy` pages, link from footer and from a required checkbox on `/register`. ~3-4 hours.
 
-### 2. Postgres has no backups
+**Status (2026-04-23):** template-level ToS and Privacy pages shipped, footer links wired on landing + `/switch-from-rewardful`, required acceptance checkbox added on `/register`. What remains before this item can be closed:
+
+- **Lawyer review** — both pages are template drafts, not reviewed by counsel. Governing-law clause in ToS is deliberately generic ("the jurisdiction in which Refledger is established") because the repo doesn't yet contain a legal entity / address. Substitute real entity details and have a lawyer review before the first real customer.
+- **Sub-processor list in Privacy** — currently names only generic categories (payment processor, hosting, error monitoring, email). Update with concrete names once Paddle (item #3) and Sentry (item #6) are live.
+- **Partner acceptance flow** — the ToS checkbox is only on the tenant `/register` flow, as scoped here. `/partner/accept-invite` has no in-flow acceptance; decide whether invited partners need their own agreement gesture or whether tenant-side acceptance is sufficient contractually.
+- **Brand naming consistency** — legal pages use "Refledger", the landing header still says "Referral System". Align once the `docs/naming-research.md` decision lands.
+
+### 2. Postgres has no backups — **done (2026-04-23)**
 
 `docker-compose.yml` mounts `pgdata` as a persistent volume — but there's no `pg_dump`, no cron, no offsite copy. First disk failure, first bad migration = unrecoverable data loss = guaranteed refunds, possible lawsuit.
 
 **Scope.** Daily `pg_dump` via cron inside the backend container or on the host, rotated 7-30 days, optionally synced to S3 or another host. Single bash script + crontab entry. ~1 hour.
+
+**Status (2026-04-23):** implemented with stricter requirements than the original scope — hourly RPO, offsite Backblaze B2, restore verification. Layout:
+
+- `ops/backup/backup.sh` — hourly `pg_dump -Fc` → restic repo on B2
+- `ops/backup/schema-dump.sh` — nightly schema snapshots
+- `ops/backup/prune.sh` — weekly `restic forget` with `--keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --keep-last 3`
+- `ops/backup/restore-test.sh` — monthly restore into throwaway container + sanity queries against real tables
+- `ops/backup/restic-init.sh` + `ops/backup/crontab.example` + `ops/backup/README.md` (full operator runbook)
+- Alerting via healthchecks.io (3 checks: backup, prune, restore-test)
+- Also added Adminer under `docker compose --profile ops up -d adminer` for visual DB inspection / manual edits (bind `127.0.0.1:8081`, never public)
+
+**Remaining before this item is truly closed on prod:**
+
+- Prod host doesn't exist yet — when it does: install restic, create B2 bucket + app key, create 3 healthchecks.io checks, fill `.env`, run `restic-init.sh`, install `crontab.example`.
+- Smoke-test the full chain on prod (`backup.sh` → `restore-test.sh`) once live.
+- Record `BACKUP_RESTIC_PASSWORD` in a password manager. Losing it = permanent loss of every offsite snapshot.
 
 ### 3. Billing: switch from Stripe to Paddle
 

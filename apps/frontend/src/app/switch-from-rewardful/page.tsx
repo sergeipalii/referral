@@ -192,9 +192,17 @@ export default function SwitchFromRewardfulPage() {
       <footer className="border-t border-gray-200 bg-white py-8">
         <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-gray-500">
           <span>Referral System &copy; {new Date().getFullYear()}</span>
-          <Link href="/" className="hover:text-gray-900">
-            Back to main page
-          </Link>
+          <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link href="/" className="hover:text-gray-900">
+              Back to main page
+            </Link>
+            <Link href="/terms" className="hover:text-gray-900">
+              Terms
+            </Link>
+            <Link href="/privacy" className="hover:text-gray-900">
+              Privacy
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

@@ -29,6 +29,7 @@ function RegisterForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +57,10 @@ function RegisterForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!acceptedTerms) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
     setLoading(true);
     try {
       await register(email, password, name || undefined);
@@ -121,6 +126,34 @@ function RegisterForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <label className="flex items-start gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              required
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>
+              I agree to the{' '}
+              <Link
+                href="/terms"
+                target="_blank"
+                className="text-indigo-600 hover:text-indigo-500 font-medium"
+              >
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link
+                href="/privacy"
+                target="_blank"
+                className="text-indigo-600 hover:text-indigo-500 font-medium"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
           <Button type="submit" loading={loading} className="w-full">
             Create account
           </Button>

@@ -242,12 +242,15 @@ export class PaymentsService {
 
   /**
    * Create one `pending` payment per eligible partner. Eligibility = partner
-   * is active, belongs to the tenant, optionally in `partnerIds`, and current
-   * balance (totalAccrued − totalPaid) > minAmount.
+   * is active, belongs to the tenant, optionally in `partnerIds`, and unallocated
+   * balance (totalAccrued − totalCompleted − totalPending) > minAmount.
+   *
+   * Pending rows are treated as already allocated: a second click on "Generate
+   * pending payouts" must be a no-op if the previous batch is still pending,
+   * otherwise duplicate rows stack up for the same earned amount.
    *
    * Not transactional on purpose: partial failure means the caller still sees
-   * whatever was created and can fix up the rest. The worst case (double-run)
-   * is mitigated by callers using distinct `reference` tags per batch.
+   * whatever was created and can fix up the rest.
    */
   async createBatch(
     userId: string,
@@ -275,14 +278,18 @@ export class PaymentsService {
           ), 0)::text`,
         'totalAccrued',
       )
+      // Both `completed` and `pending` count as allocated — pending is money
+      // already committed by a previous batch run, just not yet paid out.
+      // Only `canceled` rows are ignored.
       .addSelect(
         `COALESCE((
-            SELECT SUM(CASE WHEN pay."status" = 'completed' THEN pay."amount"::numeric ELSE 0 END)
+            SELECT SUM(pay."amount"::numeric)
             FROM payments pay
             WHERE pay."partnerId" = partner."id"::text
               AND pay."userId" = partner."userId"
+              AND pay."status" IN ('completed', 'pending')
           ), 0)::text`,
-        'totalPaid',
+        'totalAllocated',
       )
       .where('partner."userId" = :userId', { userId })
       .andWhere('partner."isActive" = true');
@@ -296,14 +303,15 @@ export class PaymentsService {
     const rows = await qb.getRawMany<{
       partnerId: string;
       totalAccrued: string;
-      totalPaid: string;
+      totalAllocated: string;
     }>();
 
     const toCreate: PaymentEntity[] = [];
     let skipped = 0;
     for (const row of rows) {
-      const balance = parseFloat(row.totalAccrued) - parseFloat(row.totalPaid);
-      if (balance <= minAmount) {
+      const unallocated =
+        parseFloat(row.totalAccrued) - parseFloat(row.totalAllocated);
+      if (unallocated <= minAmount) {
         skipped++;
         continue;
       }
@@ -311,7 +319,7 @@ export class PaymentsService {
         this.paymentsRepository.create({
           userId,
           partnerId: row.partnerId,
-          amount: balance.toFixed(6),
+          amount: unallocated.toFixed(6),
           status: 'pending',
           reference: dto.reference ?? null,
           periodStart: dto.periodStart,

@@ -58,6 +58,14 @@ Each entry: what it is → why we're not doing it now → what signal would reve
 
 **Trigger.** User feedback "I see the banner but I don't know which of my metrics is affected".
 
+### Spec coverage for `PaymentsService.createBatch`
+
+**What.** `apps/backend/src/modules/payments/payments.service.spec.ts` (or equivalent integration test) covering: (a) first call creates one pending per eligible partner, (b) second call with the same state creates zero (pending-is-allocated invariant), (c) a `completed` payment doesn't block, (d) `minAmount` filter works, (e) `partnerIds` filter scopes correctly.
+
+**Why deferred.** The bug that prompted writing this was caught by a human smoke-test in under a minute. Zero tests exist on `payments.service.ts` today — writing just this one feels like arbitrary choice over covering the rest (accrual, balance queries, CSV). Bundle together once there's capacity.
+
+**Trigger.** Next regression found in `payments.service.ts`, or the Paddle migration (#3) which already touches billing surface and should land with specs.
+
 ### Internal plan-switch tool for testing
 
 **What.** Either (a) an `apps/backend/scripts/set-plan.ts` invoked as `npm -w @referral-system/backend run set-plan -- --email=x@y.com --plan=business`, or (b) a gated `POST /dev/tenant-plan` endpoint enabled only when `ENABLE_DEV_ENDPOINTS=true` in `.env`. Mutates the `subscriptions` row without going through Stripe/Paddle.

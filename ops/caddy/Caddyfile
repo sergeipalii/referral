@@ -41,7 +41,11 @@ refledger.io {
     }
 }
 
-# www → apex, keeps a single canonical origin.
-www.refledger.io {
+# Non-canonical hosts → apex. Covers:
+#   - www subdomain on the primary domain
+#   - the .co backup domain (apex + www)
+# All collapse onto https://refledger.io so we keep a single origin for
+# cookies, CORS, HSTS, and analytics.
+www.refledger.io, refledger.co, www.refledger.co {
     redir https://refledger.io{uri} permanent
 }

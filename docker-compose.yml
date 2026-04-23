@@ -37,7 +37,12 @@ services:
         NEXT_PUBLIC_API_URL: /api
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     restart: unless-stopped
-    env_file: .env
+    # Frontend needs only the Sentry DSN at runtime (read by sentry.server.config
+    # and sentry.edge.config). Do NOT pass the full backend .env here — it has
+    # DB credentials and JWT secret that the browser-facing process doesn't need
+    # and would also override PORT, breaking the reverse proxy.
+    environment:
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     ports:
       - "127.0.0.1:3010:3000"
 

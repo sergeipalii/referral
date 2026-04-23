@@ -45,11 +45,7 @@ Frontend has no `/terms` or `/privacy` pages. This is not cosmetic:
 - Alerting via healthchecks.io (3 checks: backup, prune, restore-test)
 - Also added Adminer under `docker compose --profile ops up -d adminer` for visual DB inspection / manual edits (bind `127.0.0.1:8081`, never public)
 
-**Remaining before this item is truly closed on prod:**
-
-- Prod host doesn't exist yet — when it does: install restic, create B2 bucket + app key, create 3 healthchecks.io checks, fill `.env`, run `restic-init.sh`, install `crontab.example`.
-- Smoke-test the full chain on prod (`backup.sh` → `restore-test.sh`) once live.
-- Record `BACKUP_RESTIC_PASSWORD` in a password manager. Losing it = permanent loss of every offsite snapshot.
+**Prod rollout (2026-04-23):** done on Hetzner CPX22 at `refledger.io`. Restic repo initialised on B2 (`b2:refledger-backups:prod`), 3 healthchecks.io checks registered, cron installed at `/etc/cron.d/refledger`, first automatic hourly backup fired and pinged healthchecks green. `restore-test.sh` passed end-to-end with real sanity queries. `BACKUP_RESTIC_PASSWORD` recorded in password manager.
 
 ### 3. Billing: switch from Stripe to Paddle
 

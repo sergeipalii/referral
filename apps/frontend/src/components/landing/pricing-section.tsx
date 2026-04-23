@@ -80,6 +80,7 @@ const PLANS: PlanCard[] = [
       'Recurring commission rules',
       'Direct MMP webhook (AppsFlyer)',
       'CSV export for finance',
+      'Batch pending-payout generation',
     ],
   },
   {
@@ -97,7 +98,6 @@ const PLANS: PlanCard[] = [
     ],
     features: [
       'Everything in Pro, plus:',
-      'Batch pending-payout generation',
       'Priority support',
     ],
   },

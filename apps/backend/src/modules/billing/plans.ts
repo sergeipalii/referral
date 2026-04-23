@@ -96,7 +96,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       partnerPortal: true,
       mmpWebhook: true,
       csvExport: true,
-      batchPayouts: false,
+      batchPayouts: true,
       recurringRules: true,
     },
   },

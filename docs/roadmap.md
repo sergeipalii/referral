@@ -58,6 +58,38 @@ Each entry: what it is → why we're not doing it now → what signal would reve
 
 **Trigger.** User feedback "I see the banner but I don't know which of my metrics is affected".
 
+### Internal plan-switch tool for testing
+
+**What.** Either (a) an `apps/backend/scripts/set-plan.ts` invoked as `npm -w @referral-system/backend run set-plan -- --email=x@y.com --plan=business`, or (b) a gated `POST /dev/tenant-plan` endpoint enabled only when `ENABLE_DEV_ENDPOINTS=true` in `.env`. Mutates the `subscriptions` row without going through Stripe/Paddle.
+
+**Why deferred.** Right now raw SQL via Adminer works for the solo-operator case. Writing tooling before a second person needs it is cargo-cult. But worth fixing if plan-juggling during QA/smoke-tests happens more than ~3 times/week.
+
+**Trigger.** Next time plan-switching via raw SQL is needed for a third time in a week — or if a second person joins and can't be trusted with production SQL. Probably falls out naturally as part of the Paddle migration (#3) since that PR already touches the billing surface.
+
+### Normalize `userId` FK column types across modules
+
+**What.** Some tables store `userId` as `varchar` (e.g. `subscriptions`), others as `uuid` (the `users.id` primary key). Ad-hoc joins need `::varchar` / `::uuid` casts. Pick one (uuid everywhere) and migrate the varchar columns with an `ALTER COLUMN ... TYPE uuid USING "userId"::uuid`.
+
+**Why deferred.** Working code depends on the current types via TypeORM's implicit coercion. The cost is cosmetic (manual SQL needs casts) rather than correctness. Migrating now risks breaking subtle repositories during E2E / Paddle work.
+
+**Trigger.** Next time anyone touches the billing entities (e.g. during the Paddle migration — launch-readiness #3), fold the migration into the same PR. Otherwise re-evaluate at the first real query-performance regression caused by implicit casts on joins.
+
+### Partner password-reset self-service
+
+**What.** "Forgot password?" flow on `/partner/login` — partner enters email, receives a one-time reset link, sets a new password. Mirror of the existing invitation flow but triggered by the partner, not the tenant.
+
+**Why deferred.** Depends on outbound email infrastructure (launch-readiness #5 — still `mailto:`-only). Current workaround works: tenant generates a new invitation from `/partners`, sends the URL manually, partner re-sets password via `/accept-invite`. For 0 real partners in prod this is fine.
+
+**Trigger.** Either (a) email infra lands (SMTP + transactional templates) — then it's ~1-2h to bolt this on, or (b) ≥2 partners pinging their tenant saying "I lost my password" before email infra lands, meaning the manual path is already painful.
+
+### Auto-send partner invitation email
+
+**What.** On `POST /partner-auth/invitations`, backend sends the invite URL directly to the partner's email via SMTP. Currently the endpoint returns the token to the tenant UI and the tenant forwards it manually.
+
+**Why deferred.** Same dependency on email infra (#5). Also — solo-founder / small-team tenants often *prefer* forwarding manually (they add a personal note, use their own deliverability/branded sender, etc.). Auto-send should be an opt-in toggle, not replace the manual path.
+
+**Trigger.** Email infra landed. Then add a `sendInvitationEmail` toggle in tenant settings defaulting to `true`, with the current manual flow still available via "copy link" button.
+
 ### Email-capture form replacing mailto
 
 **What.** Real form on `/switch-from-rewardful` + `/register` → writes to a `leads` table or forwards to a CRM.

@@ -81,7 +81,7 @@ Existing soft-cap / partner-portal gating logic is **plan-provider-agnostic** â€
 
 **Risk to flag:** this is not a 15-minute config change. A realistic estimate is 2 focused days + waiting on Paddle business verification. If the timeline pressure is hard, consider: ship with Stripe now, migrate to Paddle in month 2-3 when it's less pressure. The code already works with Stripe.
 
-### 4. No rate limiting on auth endpoints
+### 4. No rate limiting on auth endpoints â€” **done (2026-04-23)**
 
 `/auth/login` and `/auth/register` are not throttled. Only `/api/conversions/track` is (via `ApiKeyThrottleGuard`). Attack surface:
 
@@ -89,6 +89,12 @@ Existing soft-cap / partner-portal gating logic is **plan-provider-agnostic** â€
 - Mass-registration DoS filling up the `users` table.
 
 **Scope.** `@nestjs/throttler` is already in the backend deps. Apply `@Throttle({ short: { limit: 5, ttl: 60_000 } })` on login and register handlers. ~15 minutes.
+
+**Status (2026-04-23):** per-IP throttling wired on every password-touching endpoint. Limits: 5/min on `register` / `login` / `accept-invite`, 10/min on `refresh` (tokens are server-signed random, so replay-abuse is the only concern). `trust proxy 1` added in `main.ts` so Throttler resolves the real client IP from Caddy's `X-Forwarded-For` instead of the docker bridge IP. Affected files:
+
+- `apps/backend/src/main.ts` (trust proxy)
+- `apps/backend/src/modules/auth/auth.controller.ts` (register / login / refresh)
+- `apps/backend/src/modules/partner-auth/partner-auth.controller.ts` (accept-invite / login / refresh)
 
 ### 5. Email infrastructure unverified
 

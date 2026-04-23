@@ -14,6 +14,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { PlanLimitGuard } from '../billing/guards/plan-limit.guard';
@@ -71,11 +72,14 @@ export class PartnerAuthController {
   // ─── Partner endpoints (public) ─────────────────────────────────────────
 
   @Post('accept-invite')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary:
       'Set a password via an invitation token. Consumes the token and returns a fresh partner token pair.',
   })
   @ApiResponse({ status: 201, type: PartnerAuthTokensDto })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   acceptInvitation(
     @Body() dto: AcceptPartnerInvitationDto,
   ): Promise<PartnerAuthTokensDto> {
@@ -84,16 +88,22 @@ export class PartnerAuthController {
 
   @Post('login')
   @HttpCode(200)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Partner portal login' })
   @ApiResponse({ status: 200, type: PartnerAuthTokensDto })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   login(@Body() dto: PartnerLoginDto): Promise<PartnerAuthTokensDto> {
     return this.partnerAuthService.login(dto.email, dto.password);
   }
 
   @Post('refresh')
   @HttpCode(200)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange a refresh token for a fresh pair' })
   @ApiResponse({ status: 200, type: PartnerAuthTokensDto })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   refresh(@Body() dto: PartnerRefreshTokenDto): Promise<PartnerAuthTokensDto> {
     return this.partnerAuthService.refresh(dto.refreshToken);
   }

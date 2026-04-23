@@ -1,10 +1,18 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+
+  // One hop of trusted proxy — Caddy — so req.ip resolves to the real
+  // client address from X-Forwarded-For instead of the docker bridge IP.
+  // Rate limiting correctness depends on this.
+  app.set('trust proxy', 1);
 
   app.useGlobalPipes(
     new ValidationPipe({

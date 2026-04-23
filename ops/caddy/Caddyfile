@@ -1,0 +1,47 @@
+# Refledger production reverse proxy.
+# Caddy auto-issues and renews TLS certs from Let's Encrypt.
+
+{
+    email {$CADDY_ACME_EMAIL}
+    # Uncomment for the Let's Encrypt staging CA while debugging — avoids
+    # hitting the prod rate limit (5 failures per hour per account/domain).
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Primary domain.
+refledger.io {
+    # Conversion-tracking + all other API routes go to the NestJS backend.
+    handle /api/* {
+        reverse_proxy backend:3001
+    }
+
+    # Everything else is served by Next.js.
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    encode gzip zstd
+
+    # Hide the software version in response headers.
+    header -Server
+
+    # Basic security headers. CSP is intentionally absent — Next.js inlines
+    # scripts with nonces and a static CSP would break them. Add later once
+    # nonce-based CSP middleware is wired.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Frame-Options "SAMEORIGIN"
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# www → apex, keeps a single canonical origin.
+www.refledger.io {
+    redir https://refledger.io{uri} permanent
+}

@@ -31,4 +31,13 @@ export class AppController {
   getHealth(): { status: 'ok' } {
     return { status: 'ok' };
   }
+
+  // Debug endpoint for Sentry wiring verification. Unconditionally throws so
+  // the SentryGlobalFilter has something to capture. Remove after the first
+  // event arrives in the Sentry UI — there's no reason to keep a live error
+  // endpoint on prod.
+  @Get('__sentry-test')
+  triggerSentryTest(): never {
+    throw new Error('sentry wiring test: backend');
+  }
 }

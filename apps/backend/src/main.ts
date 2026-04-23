@@ -1,3 +1,7 @@
+// Sentry MUST be the very first import — it patches Node modules at load
+// time, and any module imported before it will be invisible to the SDK.
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';

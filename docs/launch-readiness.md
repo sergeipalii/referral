@@ -110,11 +110,20 @@ If a lead emails `hello@` and bounces, that's a lost customer. ~30 minutes to ve
 
 ## Soft blockers (fix in week 1)
 
-### 6. No error monitoring
+### 6. No error monitoring — **code ready (2026-04-23), pending Sentry signup**
 
 Without Sentry / Bugsnag / Rollbar, the first 500 errors reach you as angry customer emails, not alerts. For a solo founder this is a serious signal-loss problem.
 
 **Scope.** Sentry Free tier. `@sentry/nestjs` for backend, `@sentry/nextjs` for frontend. Each is ~10 lines of init + env var. ~30 minutes.
+
+**Status (2026-04-23):** SDK wired on both apps. Backend: `apps/backend/src/instrument.ts` imported first in `main.ts`, `SentryModule` + `SentryGlobalFilter` registered in `app.module.ts`. Frontend: `sentry.{client,server,edge}.config.ts` + `instrumentation.ts` (Next 15 picks it up natively), `NEXT_PUBLIC_SENTRY_DSN` plumbed through Docker build arg. All init code is a no-op when DSN env var is blank, so absence doesn't break anything.
+
+**To finish on prod:**
+- Sign up at sentry.io (free tier: 5k errors/mo)
+- Create two projects: `refledger-backend` (Node/Nest), `refledger-frontend` (Next.js)
+- Copy the two DSNs into `/opt/refledger/.env` as `SENTRY_DSN_BACKEND` and `NEXT_PUBLIC_SENTRY_DSN`
+- `docker compose up -d --build` — frontend rebuild picks up the DSN as a build arg; backend picks up at start
+- Trigger a test error (e.g. `curl https://refledger.io/api/does-not-exist-on-purpose` + a deliberately thrown error from an admin endpoint) to verify both projects receive it
 
 ### 7. No cookie consent / GDPR UI
 
@@ -134,7 +143,7 @@ Is this intentional grace? Should we soft-archive partners past the cap? Auto-de
 
 **Scope.** 30 min product decision + documentation. Code changes depend on decision; could be zero.
 
-### 9. End-to-end flow never prod-tested
+### 9. End-to-end flow never prod-tested — **mostly done (2026-04-23)**
 
 Before first paying customer, someone needs to actually walk through:
 
@@ -147,6 +156,10 @@ Before first paying customer, someone needs to actually walk through:
 7. Downgrade via Paddle Portal → plan rolls back, limits kick in.
 
 Any step that breaks = fix before selling. ~2 hours if everything works, more if bugs surface.
+
+**Status (2026-04-23):** steps 1, 2, 3, 5, 6 passed end-to-end on `https://refledger.io` with real DNS + Caddy + Let's Encrypt. Steps 4 and 7 (billing) blocked on item #3 — Paddle integration. One real bug found and fixed mid-test: batch payouts were not idempotent (pending rows weren't counted as allocated, so repeat clicks stacked duplicates). Fixed in `payments.service.ts` + roadmap entry added for spec coverage. Also opened `batchPayouts` capability on Pro plan (was Business-only) — Pro vs Business now differentiates on scale limits + support, not on this feature.
+
+**Remaining:** re-run steps 4 and 7 once Paddle lands.
 
 ---
 

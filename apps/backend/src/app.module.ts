@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
+import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import configuration from './modules/config/configuration';
 import { configValidationSchema } from './modules/config/configuration.schema';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -23,6 +25,7 @@ import { ClicksModule } from './modules/clicks/clicks.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
@@ -62,6 +65,11 @@ import { ClicksModule } from './modules/clicks/clicks.module';
     ClicksModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Forwards unhandled exceptions to Sentry *and* re-throws them so NestJS
+    // can still produce its default HTTP response. Must be the first APP_FILTER.
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
+  ],
 })
 export class AppModule {}

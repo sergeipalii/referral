@@ -32,15 +32,26 @@ function RegisterForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If the landing page sent the user here with ?plan=pro or ?plan=business,
+  // If the landing page sent the user here with ?plan=starter|pro|business,
   // after registration we redirect to /billing?upgrade=<plan> which will
   // auto-start the Stripe Checkout flow. For plain registration (no plan
   // param) we go straight to the dashboard.
   const targetPlan = searchParams.get('plan');
-  const postRegisterUrl =
-    targetPlan === 'pro' || targetPlan === 'business'
-      ? `/billing?upgrade=${targetPlan}`
-      : '/partners';
+  const isValidTarget =
+    targetPlan === 'starter' || targetPlan === 'pro' || targetPlan === 'business';
+  const postRegisterUrl = isValidTarget
+    ? `/billing?upgrade=${targetPlan}`
+    : '/partners';
+  const targetPlanLabel = isValidTarget
+    ? targetPlan === 'starter'
+      ? 'Starter'
+      : targetPlan === 'pro'
+        ? 'Pro'
+        : 'Business'
+    : null;
+  const targetPlanCallout = isValidTarget
+    ? `After registration you’ll be redirected to start your ${targetPlanLabel} free trial.`
+    : null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -77,11 +88,9 @@ function RegisterForm() {
             Sign in
           </Link>
         </p>
-        {targetPlan && (
+        {targetPlanCallout && (
           <p className="mt-3 text-center text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
-            After registration you&apos;ll be redirected to start your{' '}
-            <strong>{targetPlan === 'pro' ? 'Pro' : 'Business'}</strong> free
-            trial.
+            {targetPlanCallout}
           </p>
         )}
 

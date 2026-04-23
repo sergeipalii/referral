@@ -7,12 +7,14 @@ import type { PlanKey, SubscriptionView } from '@/lib/types';
 
 const LABEL: Record<PlanKey, string> = {
   free: 'Free',
+  starter: 'Starter',
   pro: 'Pro',
   business: 'Business',
 };
 
 const TONE: Record<PlanKey, string> = {
   free: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  starter: 'bg-amber-100 text-amber-800 hover:bg-amber-200',
   pro: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
   business: 'bg-green-100 text-green-800 hover:bg-green-200',
 };

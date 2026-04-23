@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PartnerEntity } from '../partners/entities/partner.entity';
 import { AuthModule } from '../auth/auth.module';
+import { BillingModule } from '../billing/billing.module';
 import { PartnersModule } from '../partners/partners.module';
 import { ConversionsModule } from '../conversions/conversions.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -32,6 +33,10 @@ import { PartnerJwtAuthGuard } from './guards/partner-jwt-auth.guard';
     TypeOrmModule.forFeature([PartnerEntity]),
     // AuthModule exports JwtAuthGuard (used on invitation endpoints).
     AuthModule,
+    // BillingModule exports PlanLimitGuard — gates invitations behind the
+    // `partnerPortal` capability so Free-tier tenants can't onboard real
+    // partners with portal logins.
+    forwardRef(() => BillingModule),
     // Partner portal reuses existing services — no duplicated query logic.
     PartnersModule,
     ConversionsModule,

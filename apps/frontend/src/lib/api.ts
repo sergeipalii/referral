@@ -516,7 +516,7 @@ class ApiClient {
     return this.get<SubscriptionView>('/billing/subscription');
   }
 
-  createCheckout(planKey: 'pro' | 'business') {
+  createCheckout(planKey: 'starter' | 'pro' | 'business') {
     return this.post<{ url: string }>('/billing/checkout', { planKey });
   }
 

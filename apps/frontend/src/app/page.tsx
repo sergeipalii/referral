@@ -55,12 +55,11 @@ export default function LandingPage() {
           <br />
           <span className="text-indigo-600">Automate commissions.</span>
           <br />
-          Pay partners.
+          Reward partners.
         </h1>
         <p className="mx-auto mt-8 max-w-2xl text-lg text-gray-600 leading-relaxed">
-          A developer-first platform for managing referral and affiliate
-          programs. Simple API, HMAC-secured tracking, flexible payout rules,
-          and a self-service partner portal — all in one place.
+          A developer-first platform for referral and affiliate programs —
+          with flexible payout rules and a self-service partner portal.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
           {user ? (
@@ -101,12 +100,12 @@ export default function LandingPage() {
             Direct webhook support
           </div>
           <div>
-            <span className="block text-2xl font-bold text-gray-900">Stripe</span>
-            Built-in billing
+            <span className="block text-2xl font-bold text-gray-900">HMAC-signed API</span>
+            Tamper-proof tracking
           </div>
           <div>
-            <span className="block text-2xl font-bold text-gray-900">Self-hosted</span>
-            Docker Compose deploy
+            <span className="block text-2xl font-bold text-gray-900">No fees</span>
+            No cut of referred revenue
           </div>
         </div>
       </section>
@@ -167,6 +166,61 @@ export default function LandingPage() {
 
       {/* ── Pricing (subscription-aware) ────────────────────────────────── */}
       <PricingSection />
+
+      {/* ── Comparison: Refledger vs Rewardful ──────────────────────────── */}
+      <section className="border-t border-gray-200 bg-white py-24">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 className="text-center text-3xl font-bold text-gray-900">
+            Refledger vs Rewardful
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-gray-600">
+            If you&apos;re shopping referral platforms — here&apos;s where we
+            differ. Honest comparison, not a takedown.
+          </p>
+          <div className="mt-12 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-gray-200">
+                  <th className="py-4 text-left font-medium text-gray-500"></th>
+                  <th className="py-4 px-4 text-center font-semibold text-indigo-600 whitespace-nowrap">
+                    Refledger
+                  </th>
+                  <th className="py-4 px-4 text-center font-medium text-gray-500 whitespace-nowrap">
+                    Rewardful
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {comparisonRows.map((r) => (
+                  <tr key={r.label}>
+                    <td className="py-4 text-gray-700">{r.label}</td>
+                    <td className="py-4 px-4 text-center font-medium text-gray-900 whitespace-nowrap">
+                      {r.refledger}
+                    </td>
+                    <td className="py-4 px-4 text-center text-gray-600 whitespace-nowrap">
+                      {r.rewardful}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-8 text-center text-xs text-gray-500">
+            Both platforms offer partner portals, recurring commissions, and
+            Stripe-backed subscription billing for running your program.
+            Pricing accurate as of publication — check vendor sites for the
+            latest.
+          </p>
+          <div className="mt-6 text-center">
+            <Link
+              href="/switch-from-rewardful"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Switching from Rewardful? See the savings calculator →
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* ── Integration preview ─────────────────────────────────────────── */}
       <section className="py-24">
@@ -296,7 +350,7 @@ const features = [
   {
     icon: 'M',
     title: 'MMP Integration',
-    desc: 'Point AppsFlyer Push API directly at your webhook URL — no proxy server needed. Adjust support coming soon.',
+    desc: 'Point AppsFlyer Push API directly at your webhook URL — no proxy server, no code. Adjust and Branch postbacks coming next.',
   },
   {
     icon: 'R',
@@ -314,14 +368,50 @@ const features = [
     desc: 'Partners log in separately to see conversions, payments, and balance. They set their own payout details.',
   },
   {
-    icon: 'S',
-    title: 'Stripe Billing',
-    desc: 'Built-in subscription management for your platform. Free / Pro / Business plans with usage limits and feature gates.',
+    icon: 'T',
+    title: 'Transparent Pricing',
+    desc: 'Free for small programs. Paid plans from $49/mo — no sales calls, no custom quotes, no yearly contracts. Upgrade or cancel anytime.',
   },
   {
     icon: 'D',
     title: 'Integration Guide',
     desc: 'In-app documentation with code samples in Node.js, Python, and curl. AI-assisted integration prompts included.',
+  },
+];
+
+// Honest side-by-side. Shared strengths (partner portal, recurring rules,
+// Stripe billing) are called out under the table instead of cluttering the
+// rows — a comparison table works best when every row carries a difference.
+const comparisonRows = [
+  {
+    label: 'Free plan',
+    refledger: 'Yes — 5 partners, 1k events/mo',
+    rewardful: 'No (14-day trial only)',
+  },
+  {
+    label: 'Entry paid price',
+    refledger: '$19 / month',
+    rewardful: '$49 / month',
+  },
+  {
+    label: 'Transaction fee on referred revenue',
+    refledger: 'None',
+    rewardful: '9%',
+  },
+  {
+    label: 'HMAC-signed event API',
+    refledger: 'Yes',
+    rewardful: 'Pixel / JS snippet only',
+  },
+  {
+    label: 'AppsFlyer direct webhook',
+    refledger: 'Yes',
+    rewardful: 'No (Stripe-native)',
+  },
+  {
+    label: 'Stack-agnostic tracking',
+    refledger: 'Any backend',
+    rewardful: 'Stripe-first',
   },
 ];
 

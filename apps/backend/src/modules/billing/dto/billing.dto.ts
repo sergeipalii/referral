@@ -23,6 +23,26 @@ export class UsageBucketDto {
   exceeded: boolean;
 }
 
+/**
+ * Conversions are the one resource with a soft cap: ingest keeps accepting
+ * events past the limit, but read endpoints hide them until the tenant
+ * upgrades. `hiddenCount` / `visibleThrough` surface that state to the UI so
+ * it can render an upgrade banner + "+N hidden" indicators.
+ */
+export class ConversionUsageBucketDto extends UsageBucketDto {
+  @ApiProperty({
+    description:
+      'Events recorded past the current-period cap. They are stored and accruals still count — but hidden from tenant-facing reports until upgrade.',
+  })
+  hiddenCount: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Latest `eventDate` still visible in tenant-facing reports. null when cap is not exceeded (everything visible) or when even the first day overflows the cap (nothing visible in the current period).',
+  })
+  visibleThrough: Date | null;
+}
+
 export class SubscriptionUsageDto {
   @ApiProperty({ type: UsageBucketDto })
   partners: UsageBucketDto;
@@ -31,10 +51,10 @@ export class SubscriptionUsageDto {
   apiKeys: UsageBucketDto;
 
   @ApiProperty({
-    type: UsageBucketDto,
+    type: ConversionUsageBucketDto,
     description: 'Conversion count for the current billing period',
   })
-  conversions: UsageBucketDto;
+  conversions: ConversionUsageBucketDto;
 
   @ApiProperty({ description: 'Start of the current billing period (UTC)' })
   periodStart: Date;
@@ -59,11 +79,11 @@ export class PlanFeaturesDto {
 
 export class CreateCheckoutSessionDto {
   @ApiProperty({
-    enum: ['pro', 'business'],
+    enum: ['starter', 'pro', 'business'],
     description: 'Which paid plan the owner wants to subscribe to',
   })
-  @IsEnum(['pro', 'business'])
-  planKey: 'pro' | 'business';
+  @IsEnum(['starter', 'pro', 'business'])
+  planKey: 'starter' | 'pro' | 'business';
 }
 
 export class CheckoutSessionCreatedDto {

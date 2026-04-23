@@ -137,7 +137,7 @@ export interface AuthTokens {
 
 // ─── Billing ─────────────────────────────────────────────────────────────
 
-export type PlanKey = 'free' | 'pro' | 'business';
+export type PlanKey = 'free' | 'starter' | 'pro' | 'business';
 export type SubscriptionStatus =
   | 'trialing'
   | 'active'
@@ -154,10 +154,18 @@ export interface UsageBucket {
 }
 
 export interface PlanFeatures {
+  partnerPortal: boolean;
   mmpWebhook: boolean;
   csvExport: boolean;
   batchPayouts: boolean;
   recurringRules: boolean;
+}
+
+export interface ConversionUsageBucket extends UsageBucket {
+  /** Events past the cap — stored + accrued, but hidden from reports. */
+  hiddenCount: number;
+  /** Latest eventDate still visible (null = not exceeded, or nothing visible). */
+  visibleThrough: string | null;
 }
 
 export interface SubscriptionView {
@@ -173,7 +181,7 @@ export interface SubscriptionView {
   usage: {
     partners: UsageBucket;
     apiKeys: UsageBucket;
-    conversions: UsageBucket;
+    conversions: ConversionUsageBucket;
     periodStart: string;
     periodEnd: string;
   };

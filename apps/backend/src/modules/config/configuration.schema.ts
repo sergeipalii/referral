@@ -12,6 +12,7 @@ export const configValidationSchema = Joi.object({
   // if the caller hits a Stripe-backed endpoint without configuration.
   STRIPE_SECRET_KEY: Joi.string().optional(),
   STRIPE_WEBHOOK_SECRET: Joi.string().optional(),
+  STRIPE_PRICE_STARTER: Joi.string().optional(),
   STRIPE_PRICE_PRO: Joi.string().optional(),
   STRIPE_PRICE_BUSINESS: Joi.string().optional(),
   BILLING_FRONTEND_BASE_URL: Joi.string().uri().optional(),

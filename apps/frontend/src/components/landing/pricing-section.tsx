@@ -30,7 +30,7 @@ const PLANS: PlanCard[] = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'For small programs just getting started.',
+    description: 'Evaluate the product. Wire up tracking, invite yourself as a test partner, see how rules behave.',
     highlighted: false,
     limits: [
       'Up to 5 partners',
@@ -42,7 +42,24 @@ const PLANS: PlanCard[] = [
       'Conversion tracking API',
       'Fixed & percentage rules',
       'Manual payment recording',
-      'Partner portal',
+    ],
+  },
+  {
+    key: 'starter',
+    name: 'Starter',
+    price: '$19',
+    period: '/ month',
+    description: 'For small programs with real partners. Self-serve portal with their own logins.',
+    badge: '14-day free trial',
+    highlighted: false,
+    limits: [
+      'Up to 20 partners',
+      '5,000 conversions / month',
+      '2 API keys',
+    ],
+    features: [
+      'Everything in Free, plus:',
+      'Partner portal with self-serve login',
     ],
   },
   {
@@ -50,16 +67,16 @@ const PLANS: PlanCard[] = [
     name: 'Pro',
     price: '$49',
     period: '/ month',
-    description: 'For growing programs that need more reach.',
+    description: 'For growing programs with mobile attribution, finance exports and recurring payouts.',
     badge: '14-day free trial',
     highlighted: true,
     limits: [
-      'Up to 50 partners',
+      'Up to 100 partners',
       '50,000 conversions / month',
       '5 API keys',
     ],
     features: [
-      'Everything in Free, plus:',
+      'Everything in Starter, plus:',
       'Recurring commission rules',
       'Direct MMP webhook (AppsFlyer)',
       'CSV export for finance',
@@ -90,8 +107,9 @@ const PLANS: PlanCard[] = [
 
 const PLAN_ORDER: Record<PlanKey, number> = {
   free: 0,
-  pro: 1,
-  business: 2,
+  starter: 1,
+  pro: 2,
+  business: 3,
 };
 
 export function PricingSection() {
@@ -122,7 +140,7 @@ export function PricingSection() {
   const currentPlan = sub?.plan ?? null;
   const isPastDue = sub?.status === 'past_due' || sub?.status === 'unpaid';
 
-  const handleUpgrade = async (planKey: 'pro' | 'business') => {
+  const handleUpgrade = async (planKey: 'starter' | 'pro' | 'business') => {
     setCheckoutBusy(planKey);
     try {
       const res = await api.createCheckout(planKey);
@@ -144,9 +162,10 @@ export function PricingSection() {
         <p className="mx-auto mt-4 max-w-2xl text-center text-gray-600">
           Start free. Upgrade when you need more partners, higher volume, or
           advanced features. All paid plans include a 14-day free trial.
+          No transaction fees on any plan.
         </p>
 
-        <div className="mt-16 grid gap-8 lg:grid-cols-3">
+        <div className="mt-16 grid gap-8 lg:grid-cols-4">
           {PLANS.map((plan) => {
             const isCurrent = currentPlan === plan.key;
             const isLower =
@@ -262,7 +281,7 @@ function PlanCTA({
   isPastDue: boolean;
   isLoggedIn: boolean;
   checkoutBusy: PlanKey | null;
-  onUpgrade: (key: 'pro' | 'business') => void;
+  onUpgrade: (key: 'starter' | 'pro' | 'business') => void;
   highlighted: boolean;
 }) {
   // ── Guest (not logged in) ───────────────────────────────────────────
@@ -279,13 +298,19 @@ function PlanCTA({
         </Link>
       );
     }
+    const ctaLabel =
+      planKey === 'starter'
+        ? 'Start Starter trial'
+        : planKey === 'pro'
+          ? 'Start Pro trial'
+          : 'Start Business trial';
     return (
       <Link href={`/register?plan=${planKey}`} className="block">
         <Button
           variant={highlighted ? 'primary' : 'secondary'}
           className="w-full"
         >
-          Start {planKey === 'pro' ? 'Pro' : 'Business'} trial
+          {ctaLabel}
         </Button>
       </Link>
     );
@@ -323,7 +348,16 @@ function PlanCTA({
   }
 
   // ── Higher plan (upgrade available) ─────────────────────────────────
-  if (isHigher && (planKey === 'pro' || planKey === 'business')) {
+  if (
+    isHigher &&
+    (planKey === 'starter' || planKey === 'pro' || planKey === 'business')
+  ) {
+    const label =
+      planKey === 'starter'
+        ? 'Starter'
+        : planKey === 'pro'
+          ? 'Pro'
+          : 'Business';
     return (
       <Button
         variant={highlighted ? 'primary' : 'secondary'}
@@ -331,7 +365,7 @@ function PlanCTA({
         loading={checkoutBusy === planKey}
         onClick={() => onUpgrade(planKey)}
       >
-        Upgrade to {planKey === 'pro' ? 'Pro' : 'Business'}
+        Upgrade to {label}
       </Button>
     );
   }

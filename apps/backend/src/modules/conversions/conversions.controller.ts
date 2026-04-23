@@ -21,6 +21,7 @@ import { CombinedAuthGuard } from '../auth/guards/combined-auth.guard';
 import { ApiKeyThrottleGuard } from '../../common/guards/api-key-throttle.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ConversionsService } from './conversions.service';
+import { BillingService } from '../billing/billing.service';
 import { ConversionsQueryDto } from './dto/requests/conversions-query.dto';
 import { TrackConversionDto } from './dto/requests/track-conversion.dto';
 import { ConversionEventDto } from './dto/responses/conversion-event.dto';
@@ -31,7 +32,10 @@ import { PaginatedResponseDto } from '../../common/dto/pagination-meta.dto';
 @ApiTags('conversions')
 @Controller('conversions')
 export class ConversionsController {
-  constructor(private readonly conversionsService: ConversionsService) {}
+  constructor(
+    private readonly conversionsService: ConversionsService,
+    private readonly billingService: BillingService,
+  ) {}
 
   @Post('track')
   @UseGuards(HmacAuthGuard, ApiKeyThrottleGuard)
@@ -56,11 +60,12 @@ export class ConversionsController {
   @UseGuards(CombinedAuthGuard)
   @ApiOperation({ summary: 'List conversion events' })
   @ApiResponse({ status: 200, type: PaginatedResponseDto })
-  findAll(
+  async findAll(
     @GetUser('id') userId: string,
     @Query() query: ConversionsQueryDto,
   ): Promise<PaginatedResponseDto<ConversionEventDto>> {
-    return this.conversionsService.findAll(userId, query);
+    const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
+    return this.conversionsService.findAll(userId, { ...query, dateTo: cap.dateTo });
   }
 
   @Get('summary')
@@ -68,16 +73,17 @@ export class ConversionsController {
   @UseGuards(CombinedAuthGuard)
   @ApiOperation({ summary: 'Get per-partner accrual summary' })
   @ApiResponse({ status: 200, type: [PartnerSummaryDto] })
-  getSummary(
+  async getSummary(
     @GetUser('id') userId: string,
     @Query('partnerId') partnerId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
   ): Promise<PartnerSummaryDto[]> {
+    const cap = await this.billingService.effectiveDateTo(userId, dateTo);
     return this.conversionsService.getPartnerSummaries(
       userId,
       dateFrom,
-      dateTo,
+      cap.dateTo,
     );
   }
 
@@ -86,11 +92,15 @@ export class ConversionsController {
   @UseGuards(CombinedAuthGuard)
   @ApiOperation({ summary: 'List conversion events for a specific partner' })
   @ApiResponse({ status: 200, type: PaginatedResponseDto })
-  findByPartner(
+  async findByPartner(
     @GetUser('id') userId: string,
     @Param('partnerId', ParseUUIDPipe) partnerId: string,
     @Query() query: ConversionsQueryDto,
   ): Promise<PaginatedResponseDto<ConversionEventDto>> {
-    return this.conversionsService.findByPartner(userId, partnerId, query);
+    const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
+    return this.conversionsService.findByPartner(userId, partnerId, {
+      ...query,
+      dateTo: cap.dateTo,
+    });
   }
 }

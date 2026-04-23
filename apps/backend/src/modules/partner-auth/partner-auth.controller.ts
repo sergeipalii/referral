@@ -16,6 +16,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { PlanLimitGuard } from '../billing/guards/plan-limit.guard';
+import { RequireCapability } from '../billing/decorators/plan-gate.decorators';
 import { PartnerAuthService } from './partner-auth.service';
 import {
   AcceptPartnerInvitationDto,
@@ -35,7 +37,8 @@ export class PartnerAuthController {
 
   @Post('invitations')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PlanLimitGuard)
+  @RequireCapability('partnerPortal')
   @ApiOperation({
     summary:
       'Generate an invitation for a partner. Returns a one-time token the owner forwards to the partner (e.g. via their own email or messenger).',

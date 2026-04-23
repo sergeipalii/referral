@@ -24,6 +24,7 @@ export default () => ({
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || null,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null,
+    priceStarter: process.env.STRIPE_PRICE_STARTER || null,
     pricePro: process.env.STRIPE_PRICE_PRO || null,
     priceBusiness: process.env.STRIPE_PRICE_BUSINESS || null,
   },

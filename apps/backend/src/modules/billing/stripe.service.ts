@@ -66,7 +66,7 @@ export class StripeService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createCheckoutSession(args: {
     customerId: string;
-    planKey: Exclude<PlanKey, 'free'>;
+    planKey: Exclude<PlanKey, 'free'>; // 'starter' | 'pro' | 'business'
     successUrl: string;
     cancelUrl: string;
   }): Promise<any> {
@@ -77,11 +77,13 @@ export class StripeService {
         `Plan "${args.planKey}" has no Stripe price configured`,
       );
     }
-    const priceId = this.config.get<string>(
-      priceEnv === 'STRIPE_PRICE_PRO'
-        ? 'stripe.pricePro'
-        : 'stripe.priceBusiness',
-    );
+    const priceConfigKey =
+      priceEnv === 'STRIPE_PRICE_STARTER'
+        ? 'stripe.priceStarter'
+        : priceEnv === 'STRIPE_PRICE_PRO'
+          ? 'stripe.pricePro'
+          : 'stripe.priceBusiness';
+    const priceId = this.config.get<string>(priceConfigKey);
     if (!priceId) {
       throw new ServiceUnavailableException(
         `${priceEnv} env variable is missing — cannot create Checkout Session for ${args.planKey}`,

@@ -5,6 +5,7 @@ import type { PlanKey } from './entities/subscription.entity';
  * `@RequireCapability` call site is typo-checked at compile time.
  */
 export type Capability =
+  | 'partnerPortal'
   | 'mmpWebhook'
   | 'csvExport'
   | 'batchPayouts'
@@ -37,6 +38,9 @@ export interface PlanDefinition {
  * for SMB SaaS — revisit after we have signal from real customers.
  */
 export const PLANS: Record<PlanKey, PlanDefinition> = {
+  // Evaluation tier. Tenant can wire up tracking, try rules, and see the
+  // admin UI — but cannot onboard real partners with their own login, so
+  // the portal feature is a Starter-and-up differentiator.
   free: {
     key: 'free',
     label: 'Free',
@@ -49,6 +53,27 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       maxApiKeys: 1,
     },
     features: {
+      partnerPortal: false,
+      mmpWebhook: false,
+      csvExport: false,
+      batchPayouts: false,
+      recurringRules: false,
+    },
+  },
+  starter: {
+    key: 'starter',
+    label: 'Starter',
+    stripePriceEnv: 'STRIPE_PRICE_STARTER',
+    priceCents: 1_900,
+    currency: 'usd',
+    trialDays: 14,
+    limits: {
+      maxPartners: 20,
+      maxConversionsPerMonth: 5_000,
+      maxApiKeys: 2,
+    },
+    features: {
+      partnerPortal: true,
       mmpWebhook: false,
       csvExport: false,
       batchPayouts: false,
@@ -63,11 +88,12 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
     currency: 'usd',
     trialDays: 14,
     limits: {
-      maxPartners: 50,
+      maxPartners: 100,
       maxConversionsPerMonth: 50_000,
       maxApiKeys: 5,
     },
     features: {
+      partnerPortal: true,
       mmpWebhook: true,
       csvExport: true,
       batchPayouts: false,
@@ -87,6 +113,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
       maxApiKeys: null,
     },
     features: {
+      partnerPortal: true,
       mmpWebhook: true,
       csvExport: true,
       batchPayouts: true,
@@ -117,7 +144,7 @@ export function getLimit(
  */
 export function smallestPlanWith(capability: Capability): PlanKey | null {
   // Order matters: walk cheapest → most expensive and return the first match.
-  for (const key of ['free', 'pro', 'business'] as PlanKey[]) {
+  for (const key of ['free', 'starter', 'pro', 'business'] as PlanKey[]) {
     if (hasCapability(key, capability)) return key;
   }
   return null;
@@ -131,7 +158,7 @@ export function smallestPlanCovering(
   limit: CountableLimit,
   needed: number,
 ): PlanKey | null {
-  for (const key of ['free', 'pro', 'business'] as PlanKey[]) {
+  for (const key of ['free', 'starter', 'pro', 'business'] as PlanKey[]) {
     const cap = getLimit(key, limit);
     if (cap === null || cap >= needed) return key;
   }

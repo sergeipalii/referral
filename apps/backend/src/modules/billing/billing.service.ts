@@ -132,6 +132,152 @@ export class BillingService {
     }
   }
 
+  // ─── Conversion visibility cap ──────────────────────────────────────────
+  //
+  // When a tenant's current-period conversion count crosses
+  // `plans.maxConversionsPerMonth`, the ingest pipeline keeps accepting
+  // events (no 402), but read endpoints hide events past the cap to create
+  // upgrade pressure. The cap is rounded to the last full `eventDate` that
+  // still fits — we never split a day, so a busy day straddling the cap is
+  // shown in full.
+  //
+  // Cap fossilization (per-period snapshots) is NOT implemented yet — if the
+  // tenant upgrades mid-month the cutoff moves and previously-hidden data
+  // reappears. That's an acceptable Phase 1 tradeoff; document here before
+  // revisiting.
+  async getVisibleCutoff(userId: string): Promise<{
+    visibleThrough: Date | null;
+    hiddenCount: number;
+    visibleCount: number;
+    totalInPeriod: number;
+    cap: number | null;
+    exceeded: boolean;
+    periodStart: Date;
+    periodEnd: Date;
+  }> {
+    const sub = await this.getSubscriptionEntity(userId);
+    const plan = getPlan(sub.planKey);
+    const cap = plan.limits.maxConversionsPerMonth;
+    const { periodStart, periodEnd } = await this.periodBounds(userId);
+
+    if (cap === null) {
+      return {
+        visibleThrough: null,
+        hiddenCount: 0,
+        visibleCount: 0,
+        totalInPeriod: 0,
+        cap: null,
+        exceeded: false,
+        periodStart,
+        periodEnd,
+      };
+    }
+
+    // Daily buckets for the current period, ordered ASC. Walk them client-side
+    // to find the last date whose running sum still fits the cap. Keeping the
+    // loop in JS (rather than a window-function CTE) avoids a second query
+    // for the overflow total.
+    const rows = await this.conversions
+      .createQueryBuilder('ce')
+      .select('ce."eventDate"', 'eventDate')
+      .addSelect('COALESCE(SUM(ce."count"), 0)::int', 'daily')
+      .where('ce."userId" = :userId', { userId })
+      .andWhere('ce."eventDate" >= :from', { from: formatDate(periodStart) })
+      .andWhere('ce."eventDate" <= :to', { to: formatDate(periodEnd) })
+      .groupBy('ce."eventDate"')
+      .orderBy('ce."eventDate"', 'ASC')
+      .getRawMany<{ eventDate: string | Date; daily: number }>();
+
+    let visibleCount = 0;
+    let totalInPeriod = 0;
+    let visibleThrough: Date | null = null;
+    let stillFits = true;
+
+    for (const r of rows) {
+      const daily = Number(r.daily);
+      totalInPeriod += daily;
+      if (stillFits) {
+        const next = visibleCount + daily;
+        if (next <= cap) {
+          visibleCount = next;
+          visibleThrough =
+            typeof r.eventDate === 'string'
+              ? new Date(r.eventDate)
+              : r.eventDate;
+        } else {
+          // This day would tip us over — keep it visible (we round to full
+          // days) IF it's the first day. Otherwise stop at the previous day.
+          if (visibleThrough === null) {
+            // First day already exceeds cap: pathological on Free for a
+            // high-traffic tenant. Show nothing to keep semantics clean.
+            stillFits = false;
+          } else {
+            stillFits = false;
+          }
+        }
+      }
+    }
+
+    const exceeded = totalInPeriod > cap;
+    const hiddenCount = exceeded ? totalInPeriod - visibleCount : 0;
+
+    return {
+      visibleThrough: exceeded ? visibleThrough : null,
+      hiddenCount,
+      visibleCount,
+      totalInPeriod,
+      cap,
+      exceeded,
+      periodStart,
+      periodEnd,
+    };
+  }
+
+  /**
+   * Returns the effective `dateTo` a tenant-facing read endpoint should use
+   * for a conversion query, factoring in the visibility cap. Rules:
+   *
+   * - Not exceeded → returns caller's `dateTo` unchanged.
+   * - Exceeded with a `visibleThrough` date → returns the earlier of
+   *   `dateTo` and `visibleThrough` (as YYYY-MM-DD for `eventDate` compares).
+   * - Exceeded with nothing visible → returns a sentinel "before period
+   *   start" date so downstream queries produce no current-period rows.
+   *
+   * Callers should also surface `hiddenCount` to the UI.
+   */
+  async effectiveDateTo(
+    userId: string,
+    callerDateTo?: string,
+  ): Promise<{
+    dateTo: string | undefined;
+    exceeded: boolean;
+    hiddenCount: number;
+    visibleThrough: Date | null;
+  }> {
+    const { visibleThrough, exceeded, hiddenCount, periodStart } =
+      await this.getVisibleCutoff(userId);
+    if (!exceeded) {
+      return {
+        dateTo: callerDateTo,
+        exceeded: false,
+        hiddenCount: 0,
+        visibleThrough: null,
+      };
+    }
+    // Nothing visible in current period — clip at the day before periodStart
+    // to exclude the whole current period while keeping prior periods intact.
+    const fallback = new Date(periodStart.getTime() - 86_400_000);
+    const cutoffStr = formatDate(visibleThrough ?? fallback);
+    const effective =
+      callerDateTo && callerDateTo < cutoffStr ? callerDateTo : cutoffStr;
+    return {
+      dateTo: effective,
+      exceeded: true,
+      hiddenCount,
+      visibleThrough,
+    };
+  }
+
   // ─── Read API (used by /billing/subscription) ───────────────────────────
 
   async getSubscription(userId: string): Promise<SubscriptionDto> {
@@ -157,23 +303,27 @@ export class BillingService {
     const sub = await this.getSubscriptionEntity(userId);
     const plan = getPlan(sub.planKey);
 
-    const [partnersUsed, apiKeysUsed, conversionsUsed, { periodStart, periodEnd }] =
-      await Promise.all([
-        this.partners.count({ where: { userId, isActive: true } }),
-        this.apiKeys.count({ where: { userId } }),
-        this.currentUsageCount(userId, 'maxConversionsPerMonth'),
-        this.periodBounds(userId),
-      ]);
+    const [partnersUsed, apiKeysUsed, cutoff] = await Promise.all([
+      this.partners.count({ where: { userId, isActive: true } }),
+      this.apiKeys.count({ where: { userId } }),
+      this.getVisibleCutoff(userId),
+    ]);
+
+    const conversionsBucket = toBucket(
+      cutoff.totalInPeriod,
+      plan.limits.maxConversionsPerMonth,
+    );
 
     return {
       partners: toBucket(partnersUsed, plan.limits.maxPartners),
       apiKeys: toBucket(apiKeysUsed, plan.limits.maxApiKeys),
-      conversions: toBucket(
-        conversionsUsed,
-        plan.limits.maxConversionsPerMonth,
-      ),
-      periodStart,
-      periodEnd,
+      conversions: {
+        ...conversionsBucket,
+        hiddenCount: cutoff.hiddenCount,
+        visibleThrough: cutoff.visibleThrough,
+      },
+      periodStart: cutoff.periodStart,
+      periodEnd: cutoff.periodEnd,
     };
   }
 
@@ -233,7 +383,7 @@ export class BillingService {
 
   async createCheckout(
     userId: string,
-    planKey: 'pro' | 'business',
+    planKey: 'starter' | 'pro' | 'business',
   ): Promise<{ url: string }> {
     const { customerId } = await this.ensureStripeCustomer(userId);
     const baseUrl =
@@ -538,6 +688,8 @@ function planKeyFromStripeSubscription(
 ): PlanKey | null {
   const firstPriceId = stripeSub.items?.data?.[0]?.price?.id;
   if (!firstPriceId || !config) return null;
+  if (firstPriceId === config.get<string>('stripe.priceStarter'))
+    return 'starter';
   if (firstPriceId === config.get<string>('stripe.pricePro')) return 'pro';
   if (firstPriceId === config.get<string>('stripe.priceBusiness'))
     return 'business';

@@ -8,6 +8,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { AnalyticsService } from './analytics.service';
+import { BillingService } from '../billing/billing.service';
 import {
   AnalyticsQueryDto,
   TopPartnersQueryDto,
@@ -24,20 +25,20 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller('analytics')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly billingService: BillingService,
+  ) {}
 
   @Get('kpis')
   @ApiOperation({ summary: 'KPI summary with trend vs previous period' })
   @ApiResponse({ status: 200, type: KpiDto })
-  getKpis(
+  async getKpis(
     @GetUser('id') userId: string,
     @Query() query: AnalyticsQueryDto,
   ): Promise<KpiDto> {
-    return this.analyticsService.getKpis(
-      userId,
-      query.dateFrom,
-      query.dateTo,
-    );
+    const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
+    return this.analyticsService.getKpis(userId, query.dateFrom, cap.dateTo);
   }
 
   @Get('timeseries')
@@ -45,14 +46,15 @@ export class AnalyticsController {
     summary: 'Daily conversions/revenue/accrual for charting',
   })
   @ApiResponse({ status: 200, type: [TimeseriesPointDto] })
-  getTimeseries(
+  async getTimeseries(
     @GetUser('id') userId: string,
     @Query() query: AnalyticsQueryDto,
   ): Promise<TimeseriesPointDto[]> {
+    const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
     return this.analyticsService.getTimeseries(
       userId,
       query.dateFrom,
-      query.dateTo,
+      cap.dateTo,
       query.partnerId,
       query.eventName,
     );
@@ -61,29 +63,31 @@ export class AnalyticsController {
   @Get('top-partners')
   @ApiOperation({ summary: 'Top N partners by conversion count' })
   @ApiResponse({ status: 200, type: [TopPartnerDto] })
-  getTopPartners(
+  async getTopPartners(
     @GetUser('id') userId: string,
     @Query() query: TopPartnersQueryDto,
   ): Promise<TopPartnerDto[]> {
+    const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
     return this.analyticsService.getTopPartners(
       userId,
       query.limit ?? 10,
       query.dateFrom,
-      query.dateTo,
+      cap.dateTo,
     );
   }
 
   @Get('event-breakdown')
   @ApiOperation({ summary: 'Conversion/revenue/accrual breakdown by event name' })
   @ApiResponse({ status: 200, type: [EventBreakdownDto] })
-  getEventBreakdown(
+  async getEventBreakdown(
     @GetUser('id') userId: string,
     @Query() query: AnalyticsQueryDto,
   ): Promise<EventBreakdownDto[]> {
+    const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
     return this.analyticsService.getEventBreakdown(
       userId,
       query.dateFrom,
-      query.dateTo,
+      cap.dateTo,
     );
   }
 }

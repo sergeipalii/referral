@@ -14,8 +14,9 @@ import type {
   UsageBucket,
 } from '@/lib/types';
 
-const PLAN_VARIANT: Record<PlanKey, 'gray' | 'blue' | 'green'> = {
+const PLAN_VARIANT: Record<PlanKey, 'gray' | 'yellow' | 'blue' | 'green'> = {
   free: 'gray',
+  starter: 'yellow',
   pro: 'blue',
   business: 'green',
 };
@@ -89,12 +90,22 @@ function BillingPageBody() {
       });
     }
 
-    // Auto-upgrade flow: the register page redirects here with ?upgrade=pro
-    // (or business) for guests who clicked a paid-plan CTA on the landing
-    // page. We start Stripe Checkout immediately so the user goes from
-    // registration → Stripe in one smooth redirect chain.
+    // Auto-upgrade flow: the register page redirects here with
+    // ?upgrade=starter|pro|business for guests who clicked a paid-plan CTA on
+    // the landing page. We start Stripe Checkout immediately so the user goes
+    // from registration → Stripe in one smooth redirect chain.
     const upgradeTarget = searchParams.get('upgrade');
-    if (upgradeTarget === 'pro' || upgradeTarget === 'business') {
+    if (
+      upgradeTarget === 'starter' ||
+      upgradeTarget === 'pro' ||
+      upgradeTarget === 'business'
+    ) {
+      const label =
+        upgradeTarget === 'starter'
+          ? 'Starter'
+          : upgradeTarget === 'pro'
+            ? 'Pro'
+            : 'Business';
       api
         .createCheckout(upgradeTarget)
         .then((res) => {
@@ -105,7 +116,7 @@ function BillingPageBody() {
           // to the normal billing page so the user can retry manually.
           setBanner({
             tone: 'warn',
-            message: `Could not start ${upgradeTarget === 'pro' ? 'Pro' : 'Business'} checkout automatically. Use the Upgrade button below.`,
+            message: `Could not start ${label} checkout automatically. Use the Upgrade button below.`,
           });
         });
     }
@@ -345,10 +356,12 @@ function FeaturesCard({ data }: { data: SubscriptionView }) {
  * Stripe return URL lands back here cleanly.
  */
 function PlanActionsCard({ data }: { data: SubscriptionView }) {
-  const [busy, setBusy] = useState<'pro' | 'business' | 'portal' | null>(null);
+  const [busy, setBusy] = useState<
+    'starter' | 'pro' | 'business' | 'portal' | null
+  >(null);
   const [error, setError] = useState('');
 
-  const goCheckout = async (planKey: 'pro' | 'business') => {
+  const goCheckout = async (planKey: 'starter' | 'pro' | 'business') => {
     setBusy(planKey);
     setError('');
     try {
@@ -388,6 +401,15 @@ function PlanActionsCard({ data }: { data: SubscriptionView }) {
           </div>
         )}
         <div className="flex flex-wrap gap-3">
+          {data.plan === 'free' && (
+            <Button
+              variant="secondary"
+              loading={busy === 'starter'}
+              onClick={() => goCheckout('starter')}
+            >
+              Upgrade to Starter
+            </Button>
+          )}
           {data.plan !== 'pro' && (
             <Button
               variant={data.plan === 'free' ? 'primary' : 'secondary'}

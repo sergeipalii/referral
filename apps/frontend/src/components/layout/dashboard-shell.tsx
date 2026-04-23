@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Sidebar } from './sidebar';
 import { DashboardHeader } from './dashboard-header';
 import { PastDueBanner } from '@/components/billing/past-due-banner';
+import { PlanCapBanner } from '@/components/billing/plan-cap-banner';
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <div className="pl-56">
         <DashboardHeader />
         <PastDueBanner />
+        <PlanCapBanner />
         <main className="p-6">{children}</main>
       </div>
     </div>

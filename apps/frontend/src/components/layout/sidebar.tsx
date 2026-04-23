@@ -15,46 +15,68 @@ const navItems = [
   { href: '/billing', label: 'Billing', icon: 'B' },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 w-56 border-r border-gray-200 bg-white flex flex-col">
-      <div className="px-4 py-5 border-b border-gray-200">
-        <Link href="/" className="text-lg font-bold text-indigo-600">
-          Referral System
-        </Link>
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => {
-          const active = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <span
-                className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold ${
+    <>
+      {/* Backdrop — mobile only, clickable to close. Hidden on md+. */}
+      <div
+        aria-hidden={!open}
+        onClick={onClose}
+        className={`fixed inset-0 z-20 bg-gray-900/40 transition-opacity md:hidden ${
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-gray-200 bg-white transition-transform md:translate-x-0 ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="px-4 py-5 border-b border-gray-200">
+          <Link href="/" className="text-lg font-bold text-indigo-600">
+            Referral System
+          </Link>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {navItems.map((item) => {
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                {item.icon}
-              </span>
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="p-3 border-t border-gray-200">
-        <PlanBadge />
-      </div>
-    </aside>
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold ${
+                    active
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="p-3 border-t border-gray-200">
+          <PlanBadge />
+        </div>
+      </aside>
+    </>
   );
 }

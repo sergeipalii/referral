@@ -110,20 +110,19 @@ If a lead emails `hello@` and bounces, that's a lost customer. ~30 minutes to ve
 
 ## Soft blockers (fix in week 1)
 
-### 6. No error monitoring — **code ready (2026-04-23), pending Sentry signup**
+### 6. No error monitoring — **done (2026-04-23)**
 
 Without Sentry / Bugsnag / Rollbar, the first 500 errors reach you as angry customer emails, not alerts. For a solo founder this is a serious signal-loss problem.
 
 **Scope.** Sentry Free tier. `@sentry/nestjs` for backend, `@sentry/nextjs` for frontend. Each is ~10 lines of init + env var. ~30 minutes.
 
-**Status (2026-04-23):** SDK wired on both apps. Backend: `apps/backend/src/instrument.ts` imported first in `main.ts`, `SentryModule` + `SentryGlobalFilter` registered in `app.module.ts`. Frontend: `sentry.{client,server,edge}.config.ts` + `instrumentation.ts` (Next 15 picks it up natively), `NEXT_PUBLIC_SENTRY_DSN` plumbed through Docker build arg. All init code is a no-op when DSN env var is blank, so absence doesn't break anything.
+**Status (2026-04-23):** live on prod. Backend: `apps/backend/src/instrument.ts` imported first in `main.ts`, `SentryModule.forRoot()` + `SentryGlobalFilter` registered in `app.module.ts`. Frontend: `sentry.{client,server,edge}.config.ts` + `instrumentation.ts` + `withSentryConfig` wrapper in `next.config.ts` (the wrapper is what wires the client SDK into the webpack build — without it the client-side config is dead code). `NEXT_PUBLIC_SENTRY_DSN` plumbed through Docker build arg so it's embedded into the client bundle; `SENTRY_DSN_BACKEND` read from `.env` at runtime. Both projects received their first wiring-verification events. No source-map upload (needs a `SENTRY_AUTH_TOKEN` + tooling — acceptable minified stack traces for MVP).
 
-**To finish on prod:**
-- Sign up at sentry.io (free tier: 5k errors/mo)
-- Create two projects: `refledger-backend` (Node/Nest), `refledger-frontend` (Next.js)
-- Copy the two DSNs into `/opt/refledger/.env` as `SENTRY_DSN_BACKEND` and `NEXT_PUBLIC_SENTRY_DSN`
-- `docker compose up -d --build` — frontend rebuild picks up the DSN as a build arg; backend picks up at start
-- Trigger a test error (e.g. `curl https://refledger.io/api/does-not-exist-on-purpose` + a deliberately thrown error from an admin endpoint) to verify both projects receive it
+**Pitfalls encountered and documented for future reference:**
+
+- `env_file: .env` on the frontend service leaked the backend's `PORT=3001` into the Next.js container, which then bound to the wrong port and caused a 502 through Caddy. Fix: pass only `NEXT_PUBLIC_SENTRY_DSN` via explicit `environment:` on frontend.
+- Creating `sentry.client.config.ts` is not enough on its own for Next 15. You MUST also wrap `nextConfig` with `withSentryConfig` in `next.config.ts`, otherwise the client SDK is never bundled. `instrumentation.ts` only covers server + edge runtimes.
+- Docker build arg changes only re-bust the cache of layers that reference the ARG by name. When debugging, prefer `docker compose build --no-cache frontend` before a rebuild if the bundle is suspected stale.
 
 ### 7. No cookie consent / GDPR UI
 

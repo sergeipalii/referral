@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Sidebar } from './sidebar';
 import { DashboardHeader } from './dashboard-header';
@@ -11,12 +11,20 @@ import { PlanCapBanner } from '@/components/billing/plan-cap-banner';
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Close the drawer whenever navigation completes on mobile so the new page
+  // is visible without an extra tap on the backdrop.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   if (loading) {
     return (
@@ -30,12 +38,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <Sidebar />
-      <div className="pl-56">
-        <DashboardHeader />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="md:pl-56">
+        <DashboardHeader onMenuClick={() => setSidebarOpen(true)} />
         <PastDueBanner />
         <PlanCapBanner />
-        <main className="p-6">{children}</main>
+        <main className="p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

@@ -47,6 +47,16 @@ import { ClicksModule } from './modules/clicks/clicks.module';
         database: configService.get('database.database'),
         autoLoadEntities: true,
         synchronize: configService.get('database.synchronize'),
+        // Pending migrations run on boot, before the HTTP server accepts
+        // traffic. Keeps deploys atomic: if a migration fails, the
+        // container fails to start and `docker compose up` surfaces the
+        // error — no half-migrated state where new code hits old schema.
+        //
+        // `__dirname` = `apps/backend/src` in dev (ts-node) and
+        // `apps/backend/dist` in prod (compiled). Migrations are siblings
+        // of this file in both layouts.
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: true,
       }),
       inject: [ConfigService],
     }),

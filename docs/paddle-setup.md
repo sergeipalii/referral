@@ -157,11 +157,24 @@ tunnel.
 
 ### 1.8. Run migration + smoke test
 
+Backend has `migrationsRun: true` in its TypeORM config, so pending
+migrations apply automatically on first `npm run dev:backend` (and on
+every `docker compose up backend` in prod). No manual step required in
+fresh setups — just start the services:
+
 ```bash
 docker compose up -d postgres
-npm -w @referral-system/backend run migration:run   # applies SwitchStripeToPaddle1776700000000
-npm run dev:backend
+npm run dev:backend        # applies SwitchStripeToPaddle1776700000000 on boot
 npm run dev:frontend
+```
+
+If migrations ever need to run manually (e.g. schema drift repair, or a
+pre-start consistency check), the CLI still works:
+
+```bash
+npm -w @referral-system/backend run migration:run
+# or on prod inside the container:
+docker compose run --rm backend npm run migration:run
 ```
 
 Register a new user, open `/billing`, click **Upgrade to Pro**. In the
@@ -293,18 +306,21 @@ Meta tag is faster — no DNS change, single commit, no propagation wait.
    NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=<prod client token>
    ```
 
-4. Rebuild the frontend — client token + env are baked into the browser
-   bundle at build time:
+4. Deploy:
 
    ```bash
-   docker compose up -d --build frontend
+   cd /opt/refledger
+   git pull
+   docker compose up -d --build backend frontend
    ```
 
-   Backend reads `.env` on restart — no rebuild needed:
-
-   ```bash
-   docker compose restart backend
-   ```
+   - `--build` rebuilds both images. Frontend NEEDS rebuild — client
+     token + env are baked into the browser bundle at build time.
+     Backend doesn't strictly need a rebuild, but `--build` keeps it
+     symmetric and avoids the "I forgot to rebuild" trap.
+   - Pending migrations auto-apply on backend start via `migrationsRun:
+     true`. If a migration fails, the container fails to start — check
+     `docker compose logs backend`.
 
 5. Smoke: register a throwaway account on refledger.io, upgrade to
    Starter ($19) with a **real card**. Cheapest way to verify prod end-to-end.

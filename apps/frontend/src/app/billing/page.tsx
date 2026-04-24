@@ -524,16 +524,27 @@ function PlanActionsCard({
 
 function InvoicesCard({ rows }: { rows: InvoiceView[] }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
 
   const downloadPdf = async (id: string) => {
     setBusyId(id);
+    setErrorId(null);
     try {
       const res = await api.getInvoicePdfUrl(id);
       window.open(res.url, '_blank', 'noopener,noreferrer');
+    } catch {
+      // Paddle doesn't issue PDFs for trial / $0 transactions; surface
+      // inline so the user knows not to retry.
+      setErrorId(id);
     } finally {
       setBusyId(null);
     }
   };
+
+  // Trial-start transactions arrive with $0 — no PDF available. Hiding
+  // the button avoids a dead click that would always 404.
+  const hasBillableAmount = (r: InvoiceView) =>
+    Number(r.amountPaid || r.amountDue) > 0;
 
   return (
     <Card>
@@ -563,14 +574,20 @@ function InvoicesCard({ rows }: { rows: InvoiceView[] }) {
                   </td>
                   <td className="py-2">{r.status}</td>
                   <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      disabled={busyId === r.id}
-                      onClick={() => downloadPdf(r.id)}
-                      className="text-indigo-600 hover:underline disabled:text-gray-400"
-                    >
-                      {busyId === r.id ? 'Loading…' : 'PDF'}
-                    </button>
+                    {!hasBillableAmount(r) ? (
+                      <span className="text-gray-400">—</span>
+                    ) : errorId === r.id ? (
+                      <span className="text-gray-400">Not available</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busyId === r.id}
+                        onClick={() => downloadPdf(r.id)}
+                        className="text-indigo-600 hover:underline disabled:text-gray-400"
+                      >
+                        {busyId === r.id ? 'Loading…' : 'PDF'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -730,6 +730,10 @@ export class BillingService {
   /**
    * On-demand PDF URL fetch for a single invoice. Paddle re-signs the URL
    * per call (short-lived), so we never cache it — always refetch.
+   *
+   * Paddle doesn't issue PDFs for trial / $0 / not-yet-billed transactions
+   * — the API returns an error on those. We translate that to 404 so the
+   * frontend can distinguish "no PDF available" from "server bug".
    */
   async getInvoicePdfUrl(
     userId: string,
@@ -739,8 +743,21 @@ export class BillingService {
       where: { id: invoiceId, userId },
     });
     if (!row) throw new NotFoundException('Invoice not found');
-    const pdf = await this.paddleService.getInvoicePdf(row.paddleTransactionId);
-    return { url: pdf.url };
+    try {
+      const pdf = await this.paddleService.getInvoicePdf(
+        row.paddleTransactionId,
+      );
+      return { url: pdf.url };
+    } catch (err) {
+      this.logger.warn(
+        `No PDF for paddle transaction ${row.paddleTransactionId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      throw new NotFoundException(
+        'PDF not available for this transaction yet',
+      );
+    }
   }
 }
 

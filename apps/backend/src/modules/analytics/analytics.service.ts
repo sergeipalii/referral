@@ -43,10 +43,8 @@ export class AnalyticsService {
 
     if (dateFrom) qb.andWhere('ce."eventDate" >= :dateFrom', { dateFrom });
     if (dateTo) qb.andWhere('ce."eventDate" <= :dateTo', { dateTo });
-    if (partnerId)
-      qb.andWhere('ce."partnerId" = :partnerId', { partnerId });
-    if (eventName)
-      qb.andWhere('ce."eventName" = :eventName', { eventName });
+    if (partnerId) qb.andWhere('ce."partnerId" = :partnerId', { partnerId });
+    if (eventName) qb.andWhere('ce."eventName" = :eventName', { eventName });
 
     const rows = await qb.getRawMany<{
       date: string;
@@ -56,7 +54,10 @@ export class AnalyticsService {
     }>();
 
     return rows.map((r) => ({
-      date: typeof r.date === 'string' ? r.date : new Date(r.date).toISOString().slice(0, 10),
+      date:
+        typeof r.date === 'string'
+          ? r.date
+          : new Date(r.date).toISOString().slice(0, 10),
       conversions: Number(r.conversions),
       revenue: r.revenue,
       accrual: r.accrual,
@@ -136,7 +137,12 @@ export class AnalyticsService {
     const current = await this.periodKpis(userId, dateFrom, dateTo);
 
     // Compute the previous period of equal length for trend comparison.
-    let prev = { totalConversions: 0, totalRevenue: '0', totalAccrual: '0', totalPaid: '0' };
+    let prev = {
+      totalConversions: 0,
+      totalRevenue: '0',
+      totalAccrual: '0',
+      totalPaid: '0',
+    };
     if (dateFrom && dateTo) {
       const from = new Date(dateFrom);
       const to = new Date(dateTo);

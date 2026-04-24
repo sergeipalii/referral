@@ -34,6 +34,8 @@ export class PartnerDashboardDto {
   })
   balance: string;
 
-  @ApiPropertyOptional({ description: 'Most recent conversion date (YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    description: 'Most recent conversion date (YYYY-MM-DD)',
+  })
   lastConversionDate: string | null;
 }

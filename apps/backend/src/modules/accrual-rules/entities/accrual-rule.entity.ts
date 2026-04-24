@@ -18,9 +18,7 @@ export const RECURRING_RULE_TYPES: RuleType[] = [
 ];
 
 export function isRecurringRuleType(type: RuleType): boolean {
-  return (
-    type === 'recurring_fixed' || type === 'recurring_percentage'
-  );
+  return type === 'recurring_fixed' || type === 'recurring_percentage';
 }
 
 @Entity('accrual_rules')

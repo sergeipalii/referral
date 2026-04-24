@@ -329,9 +329,7 @@ export class PaymentsService {
     }
 
     const saved =
-      toCreate.length > 0
-        ? await this.paymentsRepository.save(toCreate)
-        : [];
+      toCreate.length > 0 ? await this.paymentsRepository.save(toCreate) : [];
     const totalAmount = saved
       .reduce((acc, p) => acc + parseFloat(p.amount), 0)
       .toFixed(6);

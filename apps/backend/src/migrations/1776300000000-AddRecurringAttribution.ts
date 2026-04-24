@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddRecurringAttribution1776300000000
-  implements MigrationInterface
-{
+export class AddRecurringAttribution1776300000000 implements MigrationInterface {
   name = 'AddRecurringAttribution1776300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

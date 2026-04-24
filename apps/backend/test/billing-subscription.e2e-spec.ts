@@ -149,9 +149,7 @@ describe('Billing subscription (e2e)', () => {
     });
 
     it('rejects unauthenticated', async () => {
-      await request(server())
-        .get('/api/billing/subscription')
-        .expect(401);
+      await request(server()).get('/api/billing/subscription').expect(401);
     });
 
     it('isolates usage across tenants', async () => {

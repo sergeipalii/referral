@@ -8,10 +8,7 @@ import {
 import { PartnerAuthService } from './partner-auth.service';
 import { PartnerJwtAuthGuard } from './guards/partner-jwt-auth.guard';
 import { GetPartner } from './decorators/get-partner.decorator';
-import {
-  PartnerSelfDto,
-  UpdatePartnerSelfDto,
-} from './dto/partner-auth.dto';
+import { PartnerSelfDto, UpdatePartnerSelfDto } from './dto/partner-auth.dto';
 import { PartnerDashboardDto } from './dto/partner-dashboard.dto';
 import {
   PartnerConversionsQueryDto,

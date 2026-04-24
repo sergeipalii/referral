@@ -61,7 +61,10 @@ export class KpiDto {
   @ApiProperty()
   totalPaid: string;
 
-  @ApiProperty({ description: 'Same metrics for previous period of equal length (for trend calc)' })
+  @ApiProperty({
+    description:
+      'Same metrics for previous period of equal length (for trend calc)',
+  })
   prev: {
     totalConversions: number;
     totalRevenue: string;

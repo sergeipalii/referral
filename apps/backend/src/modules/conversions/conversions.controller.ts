@@ -65,7 +65,10 @@ export class ConversionsController {
     @Query() query: ConversionsQueryDto,
   ): Promise<PaginatedResponseDto<ConversionEventDto>> {
     const cap = await this.billingService.effectiveDateTo(userId, query.dateTo);
-    return this.conversionsService.findAll(userId, { ...query, dateTo: cap.dateTo });
+    return this.conversionsService.findAll(userId, {
+      ...query,
+      dateTo: cap.dateTo,
+    });
   }
 
   @Get('summary')

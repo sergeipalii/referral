@@ -77,7 +77,9 @@ export class AnalyticsController {
   }
 
   @Get('event-breakdown')
-  @ApiOperation({ summary: 'Conversion/revenue/accrual breakdown by event name' })
+  @ApiOperation({
+    summary: 'Conversion/revenue/accrual breakdown by event name',
+  })
   @ApiResponse({ status: 200, type: [EventBreakdownDto] })
   async getEventBreakdown(
     @GetUser('id') userId: string,

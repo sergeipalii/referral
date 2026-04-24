@@ -51,7 +51,9 @@ export class PromoCodesController {
   @Get()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'List promo codes (optionally filter by partnerId)' })
+  @ApiOperation({
+    summary: 'List promo codes (optionally filter by partnerId)',
+  })
   @ApiResponse({ status: 200, type: [PromoCodeResponseDto] })
   findAll(
     @GetUser('id') userId: string,
@@ -63,7 +65,9 @@ export class PromoCodesController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update promo code (usageLimit, isActive, metadata)' })
+  @ApiOperation({
+    summary: 'Update promo code (usageLimit, isActive, metadata)',
+  })
   @ApiResponse({ status: 200, type: PromoCodeResponseDto })
   update(
     @GetUser('id') userId: string,

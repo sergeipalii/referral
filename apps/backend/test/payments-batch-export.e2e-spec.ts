@@ -63,10 +63,16 @@ describe('Payments batch + CSV export (e2e)', () => {
     });
 
     // Seed balances: A → $30, B → $50, C → $0
-    await track({ partnerCode: partnerA.code, eventName: 'signup', count: 3 })
-      .expect(201);
-    await track({ partnerCode: partnerB.code, eventName: 'signup', count: 5 })
-      .expect(201);
+    await track({
+      partnerCode: partnerA.code,
+      eventName: 'signup',
+      count: 3,
+    }).expect(201);
+    await track({
+      partnerCode: partnerB.code,
+      eventName: 'signup',
+      count: 5,
+    }).expect(201);
     // Partner C: no conversions, no balance.
   });
 
@@ -103,7 +109,9 @@ describe('Payments batch + CSV export (e2e)', () => {
         (p: { reference: string }) => p.reference === 'jan-batch',
       );
       expect(janBatch).toHaveLength(2);
-      const partnerIds = janBatch.map((p: { partnerId: string }) => p.partnerId);
+      const partnerIds = janBatch.map(
+        (p: { partnerId: string }) => p.partnerId,
+      );
       expect(partnerIds).toContain(partnerA.id);
       expect(partnerIds).toContain(partnerB.id);
       expect(partnerIds).not.toContain(partnerC.id);
@@ -125,8 +133,16 @@ describe('Payments batch + CSV export (e2e)', () => {
       }
 
       // Accrue small balances: A → $10, B → $40
-      await track({ partnerCode: partnerA.code, eventName: 'signup', count: 1 }).expect(201);
-      await track({ partnerCode: partnerB.code, eventName: 'signup', count: 4 }).expect(201);
+      await track({
+        partnerCode: partnerA.code,
+        eventName: 'signup',
+        count: 1,
+      }).expect(201);
+      await track({
+        partnerCode: partnerB.code,
+        eventName: 'signup',
+        count: 4,
+      }).expect(201);
 
       const res = await request(server())
         .post('/api/payments/batch')
@@ -241,7 +257,9 @@ describe('Payments batch + CSV export (e2e)', () => {
         .expect(200);
 
       expect(res.headers['content-type']).toMatch(/text\/csv/);
-      expect(res.headers['content-disposition']).toMatch(/attachment; filename="payments-\d{4}-\d{2}-\d{2}\.csv"/);
+      expect(res.headers['content-disposition']).toMatch(
+        /attachment; filename="payments-\d{4}-\d{2}-\d{2}\.csv"/,
+      );
 
       const body = res.text;
       const lines = body.split('\n');

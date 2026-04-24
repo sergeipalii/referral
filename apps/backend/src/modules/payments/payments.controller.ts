@@ -80,10 +80,7 @@ export class PaymentsController {
   ): Promise<string> {
     const csv = await this.paymentsService.exportCsv(userId, query);
     const filename = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${filename}"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     return csv;
   }
 

@@ -17,7 +17,10 @@ import {
  * reconciliation (e.g. "Q1 2026 partner payouts").
  */
 export class CreateBatchPaymentsDto {
-  @ApiProperty({ example: '2026-01-01', description: 'Period start (inclusive)' })
+  @ApiProperty({
+    example: '2026-01-01',
+    description: 'Period start (inclusive)',
+  })
   @IsDateString()
   periodStart: string;
 

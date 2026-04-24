@@ -15,7 +15,9 @@ import { PromoCodeEntity } from '../entities/promo-code.entity';
 // ─── Request DTOs ─────────────────────────────────────────────────────────
 
 export class CreatePromoCodeDto {
-  @ApiProperty({ description: 'Partner who gets credit when this code is used' })
+  @ApiProperty({
+    description: 'Partner who gets credit when this code is used',
+  })
   @IsUUID()
   partnerId: string;
 
@@ -37,7 +39,9 @@ export class CreatePromoCodeDto {
   @Min(1)
   usageLimit?: number | null;
 
-  @ApiPropertyOptional({ description: 'Arbitrary metadata (e.g. discount hints)' })
+  @ApiPropertyOptional({
+    description: 'Arbitrary metadata (e.g. discount hints)',
+  })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;

@@ -99,8 +99,7 @@ describe('Click tracking (e2e)', () => {
       expect(res.body.clickId).toBeDefined();
       expect(res.body.expiresAt).toBeDefined();
       // Default window = 30 days; expiry should be ~30 days from now
-      const expiresMs =
-        new Date(res.body.expiresAt).getTime() - Date.now();
+      const expiresMs = new Date(res.body.expiresAt).getTime() - Date.now();
       const daysDiff = expiresMs / (1000 * 60 * 60 * 24);
       expect(daysDiff).toBeGreaterThan(28);
       expect(daysDiff).toBeLessThan(31);
@@ -214,11 +213,7 @@ describe('Click tracking (e2e)', () => {
       const other = await registerUser(app, {
         email: 'click-other@example.com',
       });
-      await setTenantPlan(
-        app,
-        userIdFromToken(other.accessToken),
-        'business',
-      );
+      await setTenantPlan(app, userIdFromToken(other.accessToken), 'business');
       const otherKey = await createApiKey(app, other.accessToken);
 
       // Track with other tenant's API key — click belongs to first tenant

@@ -34,7 +34,7 @@ export class TrackConversionDto {
   @ApiPropertyOptional({
     example: 'ALICE10',
     description:
-      'Promo code entered at checkout. If valid, overrides partnerCode — the code\'s associated partner gets credit. Case-insensitive.',
+      "Promo code entered at checkout. If valid, overrides partnerCode — the code's associated partner gets credit. Case-insensitive.",
   })
   @IsOptional()
   @IsString()

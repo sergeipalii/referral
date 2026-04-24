@@ -31,7 +31,12 @@ export class ClicksService {
     userAgent?: string;
     referer?: string;
     landingUrl?: string;
-  }): Promise<{ clickId: string; expiresAt: Date; partnerId: string; landingUrl: string | null }> {
+  }): Promise<{
+    clickId: string;
+    expiresAt: Date;
+    partnerId: string;
+    landingUrl: string | null;
+  }> {
     // Resolve partner — also tells us the owning userId (tenant).
     let partner;
     if (args.userId) {
@@ -56,9 +61,7 @@ export class ClicksService {
     const user = await this.usersService.findById(partner.userId);
     const windowDays = user?.attributionWindowDays ?? 30;
 
-    const expiresAt = new Date(
-      Date.now() + windowDays * 24 * 60 * 60 * 1000,
-    );
+    const expiresAt = new Date(Date.now() + windowDays * 24 * 60 * 60 * 1000);
 
     const click = this.repo.create({
       userId: partner.userId,

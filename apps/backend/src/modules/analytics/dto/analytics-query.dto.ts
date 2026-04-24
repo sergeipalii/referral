@@ -43,7 +43,10 @@ export class TopPartnersQueryDto {
   @IsDateString()
   dateTo?: string;
 
-  @ApiPropertyOptional({ example: 10, description: 'How many partners to return (default 10)' })
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'How many partners to return (default 10)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

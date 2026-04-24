@@ -125,7 +125,7 @@ describe('Recurring commissions (e2e)', () => {
       expect(parseFloat(res.body.accrualAmount)).toBe(20);
     });
 
-    it("rejects event with neither partnerCode nor known externalUserId (400)", async () => {
+    it('rejects event with neither partnerCode nor known externalUserId (400)', async () => {
       await track({
         externalUserId: 'unknown_user_no_partner',
         eventName: 'signup',
@@ -321,8 +321,7 @@ describe('Recurring commissions (e2e)', () => {
       }).expect(200);
       const renewal = list.body.data.find(
         (c: { eventName: string; eventDate: string }) =>
-          c.eventName === 'subscription_renewal' &&
-          c.eventDate === renewalDate,
+          c.eventName === 'subscription_renewal' && c.eventDate === renewalDate,
       );
       expect(renewal).toBeDefined();
       expect(parseFloat(renewal.accrualAmount)).toBe(0);

@@ -159,13 +159,7 @@ export class PromoCodesService {
    * soft-deleted. Called from PartnersService.deactivate() to keep codes in
    * sync with partner status.
    */
-  async deactivateByPartner(
-    userId: string,
-    partnerId: string,
-  ): Promise<void> {
-    await this.repo.update(
-      { userId, partnerId },
-      { isActive: false },
-    );
+  async deactivateByPartner(userId: string, partnerId: string): Promise<void> {
+    await this.repo.update({ userId, partnerId }, { isActive: false });
   }
 }

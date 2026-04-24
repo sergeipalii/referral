@@ -239,7 +239,7 @@ export async function dbQuery<T = unknown>(
   params: unknown[] = [],
 ): Promise<T[]> {
   const dataSource = app.get(DataSource);
-  return dataSource.query(sql, params) as Promise<T[]>;
+  return dataSource.query(sql, params);
 }
 
 // ─── Billing helpers ─────────────────────────────────────────────────────

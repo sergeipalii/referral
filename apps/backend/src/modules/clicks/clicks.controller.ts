@@ -9,7 +9,12 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExcludeEndpoint,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ClicksService } from './clicks.service';
 
 /**
@@ -45,7 +50,10 @@ export class ClicksController {
     try {
       const click = await this.clicksService.create({
         partnerCode,
-        ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip ?? undefined,
+        ip:
+          (req.headers['x-forwarded-for'] as string)?.split(',')[0] ??
+          req.ip ??
+          undefined,
         userAgent: req.headers['user-agent'] ?? undefined,
         referer: req.headers['referer'] ?? undefined,
         landingUrl: defaultLanding,
@@ -83,12 +91,16 @@ export class ClicksController {
     },
   })
   async registerClick(
-    @Body() body: { partnerCode: string; landingUrl?: string; referer?: string },
+    @Body()
+    body: { partnerCode: string; landingUrl?: string; referer?: string },
     @Req() req: Request,
   ): Promise<{ clickId: string; expiresAt: Date }> {
     const click = await this.clicksService.create({
       partnerCode: body.partnerCode,
-      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0] ?? req.ip ?? undefined,
+      ip:
+        (req.headers['x-forwarded-for'] as string)?.split(',')[0] ??
+        req.ip ??
+        undefined,
       userAgent: req.headers['user-agent'] ?? undefined,
       referer: body.referer ?? req.headers['referer'] ?? undefined,
       landingUrl: body.landingUrl ?? undefined,

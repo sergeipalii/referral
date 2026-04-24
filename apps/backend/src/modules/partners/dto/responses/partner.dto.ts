@@ -34,7 +34,9 @@ export class PartnerDto {
   // can render "invite / pending / accepted" states. No sensitive material
   // (password hash, invitation token) ever leaves the backend.
 
-  @ApiPropertyOptional({ description: 'Login email if the partner was invited' })
+  @ApiPropertyOptional({
+    description: 'Login email if the partner was invited',
+  })
   email: string | null;
 
   @ApiProperty({

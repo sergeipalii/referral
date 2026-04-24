@@ -336,7 +336,10 @@ export class ConversionsService {
         userId,
         partnerId,
       })
-      .getRawOne<{ totalConversions: number; lastConversionDate: string | null }>();
+      .getRawOne<{
+        totalConversions: number;
+        lastConversionDate: string | null;
+      }>();
 
     return {
       totalConversions: Number(row?.totalConversions ?? 0),

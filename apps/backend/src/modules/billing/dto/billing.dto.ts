@@ -86,13 +86,48 @@ export class CreateCheckoutSessionDto {
   planKey: 'starter' | 'pro' | 'business';
 }
 
-export class CheckoutSessionCreatedDto {
-  @ApiProperty({ description: 'Stripe Checkout URL to redirect the user to' })
+export class CheckoutContextCustomDataDto {
+  @ApiProperty({ description: 'Refledger user id, echoed back in webhooks' })
+  userId: string;
+}
+
+/**
+ * Paddle overlay runs client-side — the backend only hands the frontend the
+ * price + customer ids to open the overlay with. `customData` round-trips
+ * into webhook payloads so we can reconcile without joining customer records.
+ */
+export class CheckoutContextDto {
+  @ApiProperty({ description: 'Paddle Price id to open the overlay against' })
+  priceId: string;
+
+  @ApiProperty({
+    description: 'Paddle Customer id the overlay should bind the purchase to',
+  })
+  customerId: string;
+
+  @ApiProperty({ type: CheckoutContextCustomDataDto })
+  customData: CheckoutContextCustomDataDto;
+}
+
+export class ChangePlanRequestDto {
+  @ApiProperty({
+    enum: ['starter', 'pro', 'business'],
+    description: 'Target plan. Paddle prorates the price difference.',
+  })
+  @IsEnum(['starter', 'pro', 'business'])
+  planKey: 'starter' | 'pro' | 'business';
+}
+
+export class PaymentMethodUpdateUrlDto {
+  @ApiProperty({
+    description:
+      'Paddle-hosted, short-lived URL for updating the saved payment method',
+  })
   url: string;
 }
 
-export class PortalSessionCreatedDto {
-  @ApiProperty({ description: 'Stripe Customer Portal URL to redirect to' })
+export class InvoicePdfUrlDto {
+  @ApiProperty({ description: 'Short-lived Paddle URL to download the PDF' })
   url: string;
 }
 
@@ -109,8 +144,7 @@ export class SubscriptionDto {
   status: SubscriptionStatus;
 
   @ApiProperty({
-    description:
-      'Price in cents (smallest currency unit). 0 for free plan.',
+    description: 'Price in cents (smallest currency unit). 0 for free plan.',
   })
   priceCents: number;
 
@@ -123,7 +157,7 @@ export class SubscriptionDto {
   trialEndsAt: Date | null;
 
   @ApiPropertyOptional({
-    description: 'End of the current Stripe billing period (null on free)',
+    description: 'End of the current Paddle billing period (null on free)',
   })
   currentPeriodEnd: Date | null;
 

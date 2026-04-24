@@ -36,13 +36,18 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${NEXT_PUBLIC_PADDLE_CLIENT_TOKEN:-}
+        NEXT_PUBLIC_PADDLE_ENV: ${NEXT_PUBLIC_PADDLE_ENV:-sandbox}
     restart: unless-stopped
-    # Frontend needs only the Sentry DSN at runtime (read by sentry.server.config
-    # and sentry.edge.config). Do NOT pass the full backend .env here — it has
-    # DB credentials and JWT secret that the browser-facing process doesn't need
-    # and would also override PORT, breaking the reverse proxy.
+    # Frontend needs only a narrow slice of env at runtime (Sentry DSN +
+    # Paddle client token, both read by the client bundle). Do NOT pass the
+    # full backend .env here — it has DB credentials and JWT secret that the
+    # browser-facing process doesn't need and would also override PORT,
+    # breaking the reverse proxy.
     environment:
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${NEXT_PUBLIC_PADDLE_CLIENT_TOKEN:-}
+      NEXT_PUBLIC_PADDLE_ENV: ${NEXT_PUBLIC_PADDLE_ENV:-sandbox}
     ports:
       - "127.0.0.1:3010:3000"
 

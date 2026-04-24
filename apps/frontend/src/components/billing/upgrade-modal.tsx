@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/api';
+import { getPaddle } from '@/lib/paddle';
 import type { PlanKey } from '@/lib/types';
 
 /**
@@ -68,15 +69,23 @@ export function UpgradeModalHost() {
   };
 
   const required = current.requiredPlan;
-  const upgradable = required === 'pro' || required === 'business';
+  const upgradable =
+    required === 'starter' || required === 'pro' || required === 'business';
 
   const startCheckout = async () => {
     if (!upgradable) return;
     setCheckoutBusy(true);
     setError('');
     try {
-      const res = await api.createCheckout(required);
-      window.location.href = res.url;
+      const ctx = await api.createCheckout(required);
+      const paddle = await getPaddle();
+      paddle.Checkout.open({
+        items: [{ priceId: ctx.priceId, quantity: 1 }],
+        customer: { id: ctx.customerId },
+        customData: ctx.customData,
+      });
+      // Overlay is open client-side — close the modal so the user sees it.
+      close();
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Could not start checkout',

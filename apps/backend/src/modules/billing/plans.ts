@@ -22,8 +22,8 @@ export type CountableLimit =
 export interface PlanDefinition {
   key: PlanKey;
   label: string;
-  /** Environment variable name that holds the Stripe Price id (null on free). */
-  stripePriceEnv: string | null;
+  /** Environment variable name that holds the Paddle Price id (null on free). */
+  paddlePriceEnv: string | null;
   /** Monthly price in the smallest currency unit (cents for USD). 0 for free. */
   priceCents: number;
   currency: string;
@@ -44,7 +44,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
   free: {
     key: 'free',
     label: 'Free',
-    stripePriceEnv: null,
+    paddlePriceEnv: null,
     priceCents: 0,
     currency: 'usd',
     limits: {
@@ -63,7 +63,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
   starter: {
     key: 'starter',
     label: 'Starter',
-    stripePriceEnv: 'STRIPE_PRICE_STARTER',
+    paddlePriceEnv: 'PADDLE_PRICE_STARTER',
     priceCents: 1_900,
     currency: 'usd',
     trialDays: 14,
@@ -83,7 +83,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
   pro: {
     key: 'pro',
     label: 'Pro',
-    stripePriceEnv: 'STRIPE_PRICE_PRO',
+    paddlePriceEnv: 'PADDLE_PRICE_PRO',
     priceCents: 4_900,
     currency: 'usd',
     trialDays: 14,
@@ -103,7 +103,7 @@ export const PLANS: Record<PlanKey, PlanDefinition> = {
   business: {
     key: 'business',
     label: 'Business',
-    stripePriceEnv: 'STRIPE_PRICE_BUSINESS',
+    paddlePriceEnv: 'PADDLE_PRICE_BUSINESS',
     priceCents: 19_900,
     currency: 'usd',
     trialDays: 14,
@@ -130,10 +130,7 @@ export function hasCapability(key: PlanKey, capability: Capability): boolean {
   return PLANS[key].features[capability] === true;
 }
 
-export function getLimit(
-  key: PlanKey,
-  limit: CountableLimit,
-): number | null {
+export function getLimit(key: PlanKey, limit: CountableLimit): number | null {
   return PLANS[key].limits[limit];
 }
 

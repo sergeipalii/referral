@@ -134,3 +134,34 @@ ssh -L 8081:127.0.0.1:8081 prod-host
 
 Credentials come from `.env`. Never expose Adminer on the public internet —
 the bind is `127.0.0.1:8081` on purpose.
+
+## Billing (Paddle)
+
+Payments run through **Paddle Billing v4** as the Merchant of Record. Paddle
+handles VAT / sales tax globally — Refledger never registers for tax in any
+jurisdiction.
+
+- **Checkout** — `Paddle.Checkout.open({ items, customer, customData })`
+  overlay on `/billing`. Backend does NOT return a redirect URL; it only
+  resolves `{ priceId, customerId, customData: { userId } }` which the
+  frontend feeds into the overlay.
+- **Subscription management** — in-app buttons for change-plan,
+  update-payment-method (new tab to Paddle-hosted page), cancel (schedules
+  at period end). All routed through `/api/billing/*`.
+- **Webhooks** — `POST /api/webhooks/paddle`, signature verified with
+  `PADDLE_WEBHOOK_SECRET`. Idempotent via `processed_webhook_events`.
+- **Reconcile** — nightly 04:00 UTC cron pulls authoritative state from
+  Paddle for every subscription that has a `paddleSubscriptionId`.
+
+Plan capabilities + limits live in `apps/backend/src/modules/billing/plans.ts`
+and are provider-agnostic — `PlanLimitGuard`, `@RequireCapability`, and
+`PlanCapBanner` know nothing about Paddle.
+
+Env vars: `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_ENVIRONMENT`
+(sandbox|production), `PADDLE_PRICE_STARTER/_PRO/_BUSINESS`, plus client-side
+`NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` and `NEXT_PUBLIC_PADDLE_ENV` (baked into
+the bundle at Docker build time).
+
+Sandbox = no KYC needed for dev. Production requires Paddle business
+verification (1–3 days); flip env vars + rebuild frontend image when
+approval lands.

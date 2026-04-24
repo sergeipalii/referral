@@ -143,12 +143,19 @@ export function PricingSection() {
   const handleUpgrade = async (planKey: 'starter' | 'pro' | 'business') => {
     setCheckoutBusy(planKey);
     try {
-      const res = await api.createCheckout(planKey);
-      window.location.href = res.url;
+      const ctx = await api.createCheckout(planKey);
+      const { getPaddle } = await import('@/lib/paddle');
+      const paddle = await getPaddle();
+      paddle.Checkout.open({
+        items: [{ priceId: ctx.priceId, quantity: 1 }],
+        customer: { id: ctx.customerId },
+        customData: ctx.customData,
+      });
     } catch (err) {
       alert(
         err instanceof ApiError ? err.message : 'Could not start checkout',
       );
+    } finally {
       setCheckoutBusy(null);
     }
   };

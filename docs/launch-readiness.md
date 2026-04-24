@@ -47,7 +47,9 @@ Frontend has no `/terms` or `/privacy` pages. This is not cosmetic:
 
 **Prod rollout (2026-04-23):** done on Hetzner CPX22 at `refledger.io`. Restic repo initialised on B2 (`b2:refledger-backups:prod`), 3 healthchecks.io checks registered, cron installed at `/etc/cron.d/refledger`, first automatic hourly backup fired and pinged healthchecks green. `restore-test.sh` passed end-to-end with real sanity queries. `BACKUP_RESTIC_PASSWORD` recorded in password manager.
 
-### 3. Billing: switch from Stripe to Paddle
+### 3. Billing: switch from Stripe to Paddle — **engineering done (2026-04-24)**
+
+**Status (2026-04-24):** all Stripe code removed, Paddle integration wired end-to-end against the SDK types. `PaddleService` + `PaddleWebhookController` replace the Stripe pair; `/billing` uses the `@paddle/paddle-js` overlay instead of a redirect; subscription-management buttons (change-plan, update-payment-method, cancel) call our backend which calls Paddle's Subscription API. Migration `1776700000000-SwitchStripeToPaddle` renames the columns. Backend + frontend typecheck clean. Blocked on: **(a) creating Products + Prices in a Paddle sandbox account and populating `PADDLE_*` env vars, (b) business verification for the production account (1–3 days)**. After (a) we can smoke the full overlay → webhook → DB flow locally with ngrok; (b) flips the env vars on the VPS.
 
 **Decision (2026-04-22):** going with Paddle instead of Stripe.
 

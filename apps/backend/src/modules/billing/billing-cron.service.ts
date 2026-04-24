@@ -4,11 +4,11 @@ import { BillingService } from './billing.service';
 
 /**
  * Scheduled defensive work for the billing subsystem:
- *   - daily reconcile (pulls Stripe subscription state back onto ours in
+ *   - daily reconcile (pulls Paddle subscription state back onto ours in
  *     case a webhook was missed),
  *   - daily cleanup of the `processed_webhook_events` ledger.
  *
- * Runs only when the service is configured with Stripe keys — if it isn't,
+ * Runs only when the service is configured with Paddle keys — if it isn't,
  * the jobs no-op. That keeps local dev / CI environments quiet.
  */
 @Injectable()
@@ -24,11 +24,10 @@ export class BillingCronService {
   @Cron('0 4 * * *')
   async reconcile(): Promise<void> {
     try {
-      const { reconciled } = await this.billingService.reconcileAllSubscriptions();
+      const { reconciled } =
+        await this.billingService.reconcileAllSubscriptions();
       if (reconciled > 0) {
-        this.logger.log(
-          `Reconciled ${reconciled} subscription(s) with Stripe`,
-        );
+        this.logger.log(`Reconciled ${reconciled} subscription(s) with Paddle`);
       }
     } catch (err) {
       this.logger.error(

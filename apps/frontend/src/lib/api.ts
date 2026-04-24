@@ -517,21 +517,39 @@ class ApiClient {
   }
 
   createCheckout(planKey: 'starter' | 'pro' | 'business') {
-    return this.post<{ url: string }>('/billing/checkout', { planKey });
+    return this.post<{
+      priceId: string;
+      customerId: string;
+      customData: { userId: string };
+    }>('/billing/checkout', { planKey });
   }
 
-  createPortal() {
-    return this.post<{ url: string }>('/billing/portal');
+  changePlan(planKey: 'starter' | 'pro' | 'business') {
+    return this.post<SubscriptionView>('/billing/change-plan', { planKey });
+  }
+
+  getPaymentMethodUpdateUrl() {
+    return this.get<{ url: string }>('/billing/payment-method-update-url');
+  }
+
+  cancelSubscription() {
+    return this.post<SubscriptionView>('/billing/cancel');
   }
 
   getInvoices() {
     return this.get<InvoiceView[]>('/billing/invoices');
   }
+
+  getInvoicePdfUrl(invoiceId: string) {
+    return this.get<{ url: string }>(
+      `/billing/invoices/${invoiceId}/pdf-url`,
+    );
+  }
 }
 
 export interface InvoiceView {
   id: string;
-  stripeInvoiceId: string;
+  paddleTransactionId: string;
   amountDue: string;
   amountPaid: string;
   currency: string;

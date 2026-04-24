@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventName, type EventEntity } from '@paddle/paddle-node-sdk';
 import {
   SubscriptionEntity,
   type PlanKey,
@@ -20,12 +21,7 @@ import { PartnerEntity } from '../partners/entities/partner.entity';
 import { ApiKeyEntity } from '../auth/entities/api-key.entity';
 import { ConversionEventEntity } from '../conversions/entities/conversion-event.entity';
 import { UsersService } from '../users/users.service';
-import {
-  StripeService,
-  type StripeEvent,
-  type StripeInvoice,
-  type StripeSubscription,
-} from './stripe.service';
+import { PaddleService } from './paddle.service';
 import {
   getPlan,
   hasCapability,
@@ -37,6 +33,42 @@ import {
   SubscriptionUsageDto,
   UsageBucketDto,
 } from './dto/billing.dto';
+
+/**
+ * Normalized shape shared by `Subscription` (REST response) and the webhook
+ * notification entities (`SubscriptionCreatedNotification`, etc). The field
+ * names match because Paddle keeps them consistent; only `managementUrls`
+ * differs (REST-only), and we don't read it here.
+ */
+type PaddleSubscriptionLike = {
+  id: string;
+  status: 'active' | 'canceled' | 'past_due' | 'paused' | 'trialing';
+  customerId: string;
+  canceledAt: string | null;
+  currentBillingPeriod: { startsAt: string; endsAt: string } | null;
+  scheduledChange: { action: 'cancel' | 'pause' | 'resume' } | null;
+  items: Array<{
+    price: { id: string } | null;
+    trialDates: { startsAt: string; endsAt: string } | null;
+  }>;
+};
+
+type PaddleTransactionLike = {
+  id: string;
+  status: string;
+  customerId: string | null;
+  subscriptionId: string | null;
+  invoiceNumber: string | null;
+  billedAt: string | null;
+  currencyCode: string;
+  details: {
+    totals: {
+      grandTotal: string;
+      total: string;
+      currencyCode: string;
+    } | null;
+  } | null;
+};
 
 @Injectable()
 export class BillingService {
@@ -56,7 +88,7 @@ export class BillingService {
     @InjectRepository(ProcessedWebhookEventEntity)
     private readonly processedEvents: Repository<ProcessedWebhookEventEntity>,
     private readonly usersService: UsersService,
-    private readonly stripeService: StripeService,
+    private readonly paddleService: PaddleService,
     @Optional() private readonly configService?: ConfigService,
   ) {}
 
@@ -330,8 +362,8 @@ export class BillingService {
   // ─── Internals ──────────────────────────────────────────────────────────
 
   /**
-   * Free plan has no Stripe-driven period → use calendar month (UTC). Paid
-   * plans follow the Stripe billing cycle stored on the subscription row.
+   * Free plan has no Paddle-driven period → use calendar month (UTC). Paid
+   * plans follow the Paddle billing cycle stored on the subscription row.
    */
   private async periodBounds(
     userId: string,
@@ -355,69 +387,128 @@ export class BillingService {
     return toBucket(used, limit);
   }
 
-  // ─── Stripe: Checkout + Portal ──────────────────────────────────────────
+  // ─── Paddle: customer + checkout context ────────────────────────────────
 
   /**
-   * Ensures the tenant has a Stripe customer id. Customers are created
-   * lazily — free tenants don't get a Stripe record unless/until they try
+   * Ensures the tenant has a Paddle customer id. Customers are created
+   * lazily — free tenants don't get a Paddle record unless/until they try
    * to upgrade.
    */
-  private async ensureStripeCustomer(
+  private async ensurePaddleCustomer(
     userId: string,
   ): Promise<{ sub: SubscriptionEntity; customerId: string }> {
     const sub = await this.getSubscriptionEntity(userId);
-    if (sub.stripeCustomerId) {
-      return { sub, customerId: sub.stripeCustomerId };
+    if (sub.paddleCustomerId) {
+      return { sub, customerId: sub.paddleCustomerId };
     }
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('User not found');
 
-    const customer = await this.stripeService.createCustomer(
+    const customer = await this.paddleService.createCustomer(
       userId,
       user.email,
     );
-    sub.stripeCustomerId = customer.id;
+    sub.paddleCustomerId = customer.id;
     const saved = await this.subscriptions.save(sub);
     return { sub: saved, customerId: customer.id };
   }
 
+  /**
+   * Unlike Stripe's server-side checkout session, Paddle's overlay runs
+   * entirely in the browser — the backend only resolves which price +
+   * customer to open it with. Custom data flows back as webhook metadata.
+   */
   async createCheckout(
     userId: string,
     planKey: 'starter' | 'pro' | 'business',
-  ): Promise<{ url: string }> {
-    const { customerId } = await this.ensureStripeCustomer(userId);
-    const baseUrl =
-      this.configService?.get<string>('billing.frontendBaseUrl') ??
-      'http://localhost:3000';
-    const session = await this.stripeService.createCheckoutSession({
+  ): Promise<{
+    priceId: string;
+    customerId: string;
+    customData: { userId: string };
+  }> {
+    const { customerId } = await this.ensurePaddleCustomer(userId);
+    const ctx = this.paddleService.resolveCheckoutContext({
       customerId,
       planKey,
-      successUrl: `${baseUrl}/billing?checkout=success`,
-      cancelUrl: `${baseUrl}/billing?checkout=cancelled`,
     });
-    if (!session.url) {
-      throw new ServiceUnavailableException(
-        'Stripe returned a session without a URL',
-      );
-    }
-    return { url: session.url };
+    return { ...ctx, customData: { userId } };
   }
 
-  async createPortal(userId: string): Promise<{ url: string }> {
+  /**
+   * Upgrade / downgrade via Paddle API (no overlay needed). Paddle prorates
+   * immediately and fires `subscription.updated`; the webhook handler does
+   * the local upsert, so we don't have to parse the returned subscription
+   * object here.
+   */
+  async changePlan(
+    userId: string,
+    newPlanKey: 'starter' | 'pro' | 'business',
+  ): Promise<SubscriptionDto> {
     const sub = await this.getSubscriptionEntity(userId);
-    if (!sub.stripeCustomerId) {
+    if (!sub.paddleSubscriptionId) {
       throw new BadRequestException(
-        'No Stripe customer yet — complete an upgrade first',
+        'No Paddle subscription yet — start with a checkout first',
       );
     }
-    const baseUrl =
-      this.configService?.get<string>('billing.frontendBaseUrl') ??
-      'http://localhost:3000';
-    const session = await this.stripeService.createPortalSession({
-      customerId: sub.stripeCustomerId,
-      returnUrl: `${baseUrl}/billing`,
-    });
-    return { url: session.url };
+    const plan = getPlan(newPlanKey);
+    if (!plan.paddlePriceEnv) {
+      throw new ServiceUnavailableException(
+        `Plan "${newPlanKey}" has no Paddle price configured`,
+      );
+    }
+    const priceConfigKey =
+      plan.paddlePriceEnv === 'PADDLE_PRICE_STARTER'
+        ? 'paddle.priceStarter'
+        : plan.paddlePriceEnv === 'PADDLE_PRICE_PRO'
+          ? 'paddle.pricePro'
+          : 'paddle.priceBusiness';
+    const priceId = this.configService?.get<string>(priceConfigKey);
+    if (!priceId) {
+      throw new ServiceUnavailableException(
+        `${plan.paddlePriceEnv} is missing — cannot change plan`,
+      );
+    }
+    await this.paddleService.updateSubscriptionItems(
+      sub.paddleSubscriptionId,
+      priceId,
+    );
+    // Don't wait on the webhook — Paddle returns the updated subscription
+    // synchronously, so we can reconcile here for an instant UI reflect.
+    const latest = await this.paddleService.retrieveSubscription(
+      sub.paddleSubscriptionId,
+    );
+    await this.upsertFromPaddle(latest);
+    return this.getSubscription(userId);
+  }
+
+  async getPaymentMethodUpdateUrl(userId: string): Promise<{ url: string }> {
+    const sub = await this.getSubscriptionEntity(userId);
+    if (!sub.paddleSubscriptionId) {
+      throw new BadRequestException(
+        'No Paddle subscription yet — complete an upgrade first',
+      );
+    }
+    const url = await this.paddleService.getPaymentMethodUpdateUrl(
+      sub.paddleSubscriptionId,
+    );
+    if (!url) {
+      throw new ServiceUnavailableException(
+        'Paddle did not return a payment-method-update URL',
+      );
+    }
+    return { url };
+  }
+
+  async cancelSubscription(userId: string): Promise<SubscriptionDto> {
+    const sub = await this.getSubscriptionEntity(userId);
+    if (!sub.paddleSubscriptionId) {
+      throw new BadRequestException('No Paddle subscription to cancel');
+    }
+    const latest = await this.paddleService.cancelSubscription(
+      sub.paddleSubscriptionId,
+    );
+    await this.upsertFromPaddle(latest);
+    return this.getSubscription(userId);
   }
 
   // ─── Webhook dispatch ───────────────────────────────────────────────────
@@ -425,178 +516,170 @@ export class BillingService {
   /**
    * Idempotency: inserts the event id; if the INSERT affects zero rows the
    * event was already processed, so we skip. Any race between concurrent
-   * deliveries is resolved by the UNIQUE(stripeEventId) index.
+   * deliveries is resolved by the UNIQUE(paddleEventId) index.
    */
-  private async claimEvent(event: StripeEvent): Promise<boolean> {
+  private async claimEvent(event: EventEntity): Promise<boolean> {
     const result: { id: string }[] = await this.processedEvents.query(
-      `INSERT INTO processed_webhook_events ("stripeEventId", "type")
-       VALUES ($1, $2) ON CONFLICT ("stripeEventId") DO NOTHING
+      `INSERT INTO processed_webhook_events ("paddleEventId", "type")
+       VALUES ($1, $2) ON CONFLICT ("paddleEventId") DO NOTHING
        RETURNING "id"`,
-      [event.id, event.type],
+      [event.eventId, event.eventType],
     );
     return result.length > 0;
   }
 
-  async handleWebhookEvent(event: StripeEvent): Promise<void> {
+  async handlePaddleEvent(event: EventEntity): Promise<void> {
     const claimed = await this.claimEvent(event);
     if (!claimed) {
       this.logger.debug(
-        `Skipping duplicate Stripe event ${event.id} (${event.type})`,
+        `Skipping duplicate Paddle event ${event.eventId} (${event.eventType})`,
       );
       return;
     }
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        // Completed checkout tells us a subscription now exists. We fetch
-        // the Subscription object rather than reading half-populated data
-        // from the session itself — less bookkeeping, fewer corner cases.
-        const session = event.data.object as {
-          subscription?: string | { id: string } | null;
-        };
-        const subId =
-          typeof session.subscription === 'string'
-            ? session.subscription
-            : session.subscription?.id;
-        if (subId) {
-          const sub = await this.stripeService.retrieveSubscription(subId);
-          await this.upsertFromStripe(sub);
-        }
+    switch (event.eventType) {
+      case EventName.SubscriptionCreated:
+      case EventName.SubscriptionActivated:
+      case EventName.SubscriptionUpdated:
+      case EventName.SubscriptionCanceled:
+      case EventName.SubscriptionPastDue:
+      case EventName.SubscriptionPaused:
+      case EventName.SubscriptionResumed:
+      case EventName.SubscriptionTrialing: {
+        await this.upsertFromPaddle(
+          event.data as unknown as PaddleSubscriptionLike,
+        );
         break;
       }
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as StripeSubscription;
-        await this.upsertFromStripe(sub);
-        break;
-      }
-      case 'invoice.paid':
-      case 'invoice.payment_failed':
-      case 'invoice.finalized':
-      case 'invoice.voided': {
-        const invoice = event.data.object as StripeInvoice;
-        await this.upsertInvoice(invoice);
+      case EventName.TransactionCompleted:
+      case EventName.TransactionBilled:
+      case EventName.TransactionPaid:
+      case EventName.TransactionPaymentFailed: {
+        await this.upsertTransactionAsInvoice(
+          event.data as unknown as PaddleTransactionLike,
+        );
         break;
       }
       default:
-        // Stripe sends many more event types — ignore the ones we don't
+        // Paddle sends many more event types — ignore the ones we don't
         // care about. They still count as "processed" for idempotency.
-        this.logger.debug(`Ignoring Stripe event type ${event.type}`);
+        this.logger.debug(`Ignoring Paddle event type ${event.eventType}`);
     }
   }
 
   /**
-   * Map a Stripe Subscription snapshot into our row. Found by
-   * `stripeSubscriptionId` first (fast path on subsequent updates), falling
-   * back to `stripeCustomerId` (for the first `subscription.created` event
-   * that sets the id). If neither match we refuse to create a stranded row.
+   * Map a Paddle Subscription snapshot (REST response or webhook payload)
+   * into our row. Looked up by `paddleSubscriptionId` first (fast path on
+   * subsequent updates), falling back to `paddleCustomerId` (for the first
+   * `subscription.created` event that sets the id). If neither match we
+   * refuse to create a stranded row.
    */
-  private async upsertFromStripe(stripeSub: StripeSubscription): Promise<void> {
+  private async upsertFromPaddle(
+    paddleSub: PaddleSubscriptionLike,
+  ): Promise<void> {
     let sub = await this.subscriptions.findOne({
-      where: { stripeSubscriptionId: stripeSub.id },
+      where: { paddleSubscriptionId: paddleSub.id },
     });
     if (!sub) {
-      const customerId =
-        typeof stripeSub.customer === 'string'
-          ? stripeSub.customer
-          : stripeSub.customer.id;
       sub = await this.subscriptions.findOne({
-        where: { stripeCustomerId: customerId },
+        where: { paddleCustomerId: paddleSub.customerId },
       });
     }
     if (!sub) {
       this.logger.warn(
-        `Received Stripe subscription ${stripeSub.id} for unknown tenant — ignoring`,
+        `Received Paddle subscription ${paddleSub.id} for unknown tenant — ignoring`,
       );
       return;
     }
 
-    const planKey = planKeyFromStripeSubscription(stripeSub, this.configService);
+    const planKey = planKeyFromPaddleSubscription(
+      paddleSub,
+      this.configService,
+    );
     if (planKey) sub.planKey = planKey;
 
-    sub.stripeSubscriptionId = stripeSub.id;
-    sub.status = stripeStatusToLocal(stripeSub.status);
-    const firstItem = stripeSub.items?.data?.[0];
-    sub.currentPeriodStart = firstItem?.current_period_start
-      ? new Date(firstItem.current_period_start * 1000)
+    sub.paddleSubscriptionId = paddleSub.id;
+    sub.status = paddleStatusToLocal(paddleSub.status);
+    sub.currentPeriodStart = paddleSub.currentBillingPeriod?.startsAt
+      ? new Date(paddleSub.currentBillingPeriod.startsAt)
       : null;
-    sub.currentPeriodEnd = firstItem?.current_period_end
-      ? new Date(firstItem.current_period_end * 1000)
+    sub.currentPeriodEnd = paddleSub.currentBillingPeriod?.endsAt
+      ? new Date(paddleSub.currentBillingPeriod.endsAt)
       : null;
-    sub.cancelAtPeriodEnd = stripeSub.cancel_at_period_end === true;
-    sub.trialEndsAt = stripeSub.trial_end
-      ? new Date(stripeSub.trial_end * 1000)
-      : null;
+    sub.cancelAtPeriodEnd = paddleSub.scheduledChange?.action === 'cancel';
+    const firstItemTrial = paddleSub.items?.[0]?.trialDates?.endsAt;
+    sub.trialEndsAt = firstItemTrial ? new Date(firstItemTrial) : null;
 
-    // When Stripe declares the subscription fully terminated (after the
-    // period has ended) we snap back to the free plan so UI doesn't leave
-    // the owner on a stale paid state.
-    if (stripeSub.status === 'canceled' && !sub.cancelAtPeriodEnd) {
+    // When Paddle declares the subscription fully terminated (canceled and
+    // the cancellation is no longer scheduled) we snap back to the free
+    // plan so UI doesn't leave the owner on a stale paid state.
+    if (
+      paddleSub.status === 'canceled' &&
+      !sub.cancelAtPeriodEnd &&
+      paddleSub.canceledAt
+    ) {
       sub.planKey = 'free';
-      sub.stripeSubscriptionId = null;
+      sub.paddleSubscriptionId = null;
     }
 
     await this.subscriptions.save(sub);
   }
 
-  private async upsertInvoice(stripeInvoice: StripeInvoice): Promise<void> {
-    const customerId =
-      typeof stripeInvoice.customer === 'string'
-        ? stripeInvoice.customer
-        : stripeInvoice.customer?.id;
-    if (!customerId) return;
+  private async upsertTransactionAsInvoice(
+    tx: PaddleTransactionLike,
+  ): Promise<void> {
+    if (!tx.customerId) return;
 
     const sub = await this.subscriptions.findOne({
-      where: { stripeCustomerId: customerId },
+      where: { paddleCustomerId: tx.customerId },
     });
     if (!sub) {
       this.logger.warn(
-        `Invoice ${stripeInvoice.id} for unknown customer ${customerId}; ignoring`,
+        `Transaction ${tx.id} for unknown customer ${tx.customerId}; ignoring`,
       );
       return;
     }
 
-    const existing = stripeInvoice.id
-      ? await this.invoices.findOne({
-          where: { stripeInvoiceId: stripeInvoice.id },
-        })
-      : null;
+    const existing = await this.invoices.findOne({
+      where: { paddleTransactionId: tx.id },
+    });
+
+    const totals = tx.details?.totals;
+    // Paddle returns major-unit strings (e.g. "49.00") — not cents. Pass
+    // through as-is; the decimal column keeps precision.
+    const grandTotal = totals?.grandTotal ?? totals?.total ?? '0';
+    const currency = totals?.currencyCode ?? tx.currencyCode;
+    const billedAt = tx.billedAt ? new Date(tx.billedAt) : null;
 
     const row =
       existing ??
       this.invoices.create({
         userId: sub.userId,
-        stripeInvoiceId: stripeInvoice.id ?? '',
+        paddleTransactionId: tx.id,
       });
 
-    row.stripeSubscriptionId =
-      typeof stripeInvoice.parent?.subscription_details?.subscription ===
-      'string'
-        ? stripeInvoice.parent.subscription_details.subscription
-        : (sub.stripeSubscriptionId ?? null);
-    row.amountDue = (stripeInvoice.amount_due / 100).toFixed(2);
-    row.amountPaid = (stripeInvoice.amount_paid / 100).toFixed(2);
-    row.currency = stripeInvoice.currency;
-    row.status = stripeInvoice.status ?? 'open';
-    row.hostedInvoiceUrl = stripeInvoice.hosted_invoice_url ?? null;
-    row.invoicePdfUrl = stripeInvoice.invoice_pdf ?? null;
-    row.periodStart = stripeInvoice.period_start
-      ? new Date(stripeInvoice.period_start * 1000)
-      : null;
-    row.periodEnd = stripeInvoice.period_end
-      ? new Date(stripeInvoice.period_end * 1000)
-      : null;
-    row.paidAt = stripeInvoice.status_transitions?.paid_at
-      ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
-      : null;
+    row.paddleSubscriptionId = tx.subscriptionId ?? sub.paddleSubscriptionId;
+    row.amountDue = grandTotal;
+    // Paddle status of `completed` / `paid` / `billed` → we consider it paid.
+    const paid =
+      tx.status === 'completed' ||
+      tx.status === 'paid' ||
+      tx.status === 'billed';
+    row.amountPaid = paid ? grandTotal : '0';
+    row.currency = currency;
+    row.status = tx.status;
+    row.hostedInvoiceUrl = null; // Paddle has no hosted equivalent.
+    row.invoicePdfUrl = null; // Fetched on-demand per view — see PaddleService.
+    row.periodStart = billedAt;
+    row.periodEnd = null;
+    row.paidAt = paid ? billedAt : null;
 
     await this.invoices.save(row);
   }
 
   /**
    * Cleanup worker called by `BillingCronService` — keeps
-   * `processed_webhook_events` from growing unboundedly. Stripe only retries
+   * `processed_webhook_events` from growing unboundedly. Paddle only retries
    * within ~3 days so 30 is a comfortable safety margin.
    */
   async cleanupOldProcessedEvents(): Promise<void> {
@@ -608,29 +691,25 @@ export class BillingService {
   }
 
   /**
-   * Defensive reconcile: walk every subscription that has a Stripe id and
-   * pull its authoritative state back from Stripe. Protects against missed
+   * Defensive reconcile: walk every subscription that has a Paddle id and
+   * pull its authoritative state back from Paddle. Protects against missed
    * or out-of-order webhooks.
    */
   async reconcileAllSubscriptions(): Promise<{ reconciled: number }> {
-    if (!this.stripeService.isConfigured()) return { reconciled: 0 };
-    const rows = await this.subscriptions.find({
-      where: [
-        // `Not(IsNull(...))` would need a typeorm import; using query for brevity.
-      ],
-    });
+    if (!this.paddleService.isConfigured()) return { reconciled: 0 };
+    const rows = await this.subscriptions.find({});
     let count = 0;
     for (const row of rows) {
-      if (!row.stripeSubscriptionId) continue;
+      if (!row.paddleSubscriptionId) continue;
       try {
-        const stripeSub = await this.stripeService.retrieveSubscription(
-          row.stripeSubscriptionId,
+        const paddleSub = await this.paddleService.retrieveSubscription(
+          row.paddleSubscriptionId,
         );
-        await this.upsertFromStripe(stripeSub);
+        await this.upsertFromPaddle(paddleSub);
         count++;
       } catch (err) {
         this.logger.warn(
-          `Reconcile failed for ${row.stripeSubscriptionId}: ${
+          `Reconcile failed for ${row.paddleSubscriptionId}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
@@ -647,11 +726,27 @@ export class BillingService {
     });
     return rows;
   }
+
+  /**
+   * On-demand PDF URL fetch for a single invoice. Paddle re-signs the URL
+   * per call (short-lived), so we never cache it — always refetch.
+   */
+  async getInvoicePdfUrl(
+    userId: string,
+    invoiceId: string,
+  ): Promise<{ url: string }> {
+    const row = await this.invoices.findOne({
+      where: { id: invoiceId, userId },
+    });
+    if (!row) throw new NotFoundException('Invoice not found');
+    const pdf = await this.paddleService.getInvoicePdf(row.paddleTransactionId);
+    return { url: pdf.url };
+  }
 }
 
-/** Map Stripe's subscription status strings to our local ones. */
-function stripeStatusToLocal(
-  status: StripeSubscription['status'],
+/** Map Paddle's subscription status strings to our local ones. */
+function paddleStatusToLocal(
+  status: PaddleSubscriptionLike['status'],
 ): SubscriptionStatus {
   switch (status) {
     case 'trialing':
@@ -662,36 +757,29 @@ function stripeStatusToLocal(
       return 'past_due';
     case 'canceled':
       return 'canceled';
-    case 'unpaid':
-      return 'unpaid';
     case 'paused':
       return 'paused';
-    case 'incomplete':
-    case 'incomplete_expired':
-      // Funky checkout states map to `past_due` for our purposes — the UI
-      // banner + reconcile flow handles them identically.
-      return 'past_due';
     default:
       return 'active';
   }
 }
 
 /**
- * Figure out which of our plan keys corresponds to the Stripe subscription's
+ * Figure out which of our plan keys corresponds to the Paddle subscription's
  * active price. Relies on config to map Price id → plan key. Returns null
  * if we can't determine (unusual — we'd only create subscriptions with our
  * own price ids).
  */
-function planKeyFromStripeSubscription(
-  stripeSub: StripeSubscription,
+function planKeyFromPaddleSubscription(
+  paddleSub: PaddleSubscriptionLike,
   config: ConfigService | undefined,
 ): PlanKey | null {
-  const firstPriceId = stripeSub.items?.data?.[0]?.price?.id;
+  const firstPriceId = paddleSub.items?.[0]?.price?.id;
   if (!firstPriceId || !config) return null;
-  if (firstPriceId === config.get<string>('stripe.priceStarter'))
+  if (firstPriceId === config.get<string>('paddle.priceStarter'))
     return 'starter';
-  if (firstPriceId === config.get<string>('stripe.pricePro')) return 'pro';
-  if (firstPriceId === config.get<string>('stripe.priceBusiness'))
+  if (firstPriceId === config.get<string>('paddle.pricePro')) return 'pro';
+  if (firstPriceId === config.get<string>('paddle.priceBusiness'))
     return 'business';
   return null;
 }

@@ -16,8 +16,8 @@ export type SubscriptionStatus =
   | 'paused';
 
 /**
- * One row per tenant. Free-plan subscriptions carry no Stripe ids — we only
- * create a Stripe customer the first time a tenant upgrades. Mutated in place
+ * One row per tenant. Free-plan subscriptions carry no Paddle ids — we only
+ * create a Paddle customer the first time a tenant upgrades. Mutated in place
  * on plan changes (not versioned); if we ever need history, add a separate
  * `subscription_events` table.
  */
@@ -36,10 +36,10 @@ export class SubscriptionEntity {
   status: SubscriptionStatus;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  stripeCustomerId: string | null;
+  paddleCustomerId: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  stripeSubscriptionId: string | null;
+  paddleSubscriptionId: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   currentPeriodStart: Date | null;

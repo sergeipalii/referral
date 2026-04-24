@@ -18,15 +18,19 @@ export default () => ({
   jwt: {
     secret: process.env.JWT_SECRET,
   },
-  // Stripe billing. All keys are optional — without them the /billing
-  // subscription endpoint still works (read-only on a free plan), only
-  // checkout/portal/webhook endpoints bail out with a clear error.
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY || null,
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null,
-    priceStarter: process.env.STRIPE_PRICE_STARTER || null,
-    pricePro: process.env.STRIPE_PRICE_PRO || null,
-    priceBusiness: process.env.STRIPE_PRICE_BUSINESS || null,
+  // Paddle (Merchant of Record). All keys are optional — without them the
+  // /billing subscription endpoint still works (read-only on a free plan),
+  // only checkout/change-plan/webhook endpoints bail out with a clear error.
+  paddle: {
+    apiKey: process.env.PADDLE_API_KEY || null,
+    webhookSecret: process.env.PADDLE_WEBHOOK_SECRET || null,
+    environment:
+      process.env.PADDLE_ENVIRONMENT === 'production'
+        ? 'production'
+        : 'sandbox',
+    priceStarter: process.env.PADDLE_PRICE_STARTER || null,
+    pricePro: process.env.PADDLE_PRICE_PRO || null,
+    priceBusiness: process.env.PADDLE_PRICE_BUSINESS || null,
   },
   billing: {
     frontendBaseUrl:

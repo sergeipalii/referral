@@ -1,12 +1,17 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api, ApiError, type InvoiceView } from '@/lib/api';
+import {
+  CheckoutEventNames,
+  getPaddle,
+  onCheckoutEvent,
+} from '@/lib/paddle';
 import type {
   PlanKey,
   SubscriptionStatus,
@@ -61,6 +66,18 @@ export default function BillingPage() {
   );
 }
 
+async function openPaddleCheckout(
+  planKey: 'starter' | 'pro' | 'business',
+): Promise<void> {
+  const ctx = await api.createCheckout(planKey);
+  const paddle = await getPaddle();
+  paddle.Checkout.open({
+    items: [{ priceId: ctx.priceId, quantity: 1 }],
+    customer: { id: ctx.customerId },
+    customData: ctx.customData,
+  });
+}
+
 function BillingPageBody() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<SubscriptionView | null>(null);
@@ -71,29 +88,47 @@ function BillingPageBody() {
     message: string;
   } | null>(null);
 
-  useEffect(() => {
-    // Stripe redirects us back with ?checkout=success|cancelled on the
-    // Checkout return URL we configured on the backend. Translate those into
-    // in-app banners so the owner gets feedback before the next webhook
-    // reflects the new subscription state.
-    const flag = searchParams.get('checkout');
-    if (flag === 'success') {
-      setBanner({
-        tone: 'success',
-        message:
-          'Checkout complete. Your new plan is activating — refresh in a moment if you don\u2019t see it yet.',
-      });
-    } else if (flag === 'cancelled') {
-      setBanner({
-        tone: 'warn',
-        message: 'Checkout cancelled. Your plan was not changed.',
-      });
-    }
+  // Refetch the subscription + invoices — used after the Paddle overlay
+  // completes so the UI reflects the new plan without a page reload. The
+  // webhook may still be in-flight; a short delay lets it land most of the
+  // time, and the user can refresh manually otherwise.
+  const refresh = useCallback(async () => {
+    const [s, inv] = await Promise.all([
+      api.getSubscription(),
+      api.getInvoices().catch(() => [] as InvoiceView[]),
+    ]);
+    setData(s);
+    setInvoices(inv);
+  }, []);
 
+  useEffect(() => {
+    // Listen for overlay lifecycle events. On completion, show a success
+    // banner and refetch after a short delay so the webhook has a chance to
+    // update the subscription row.
+    return onCheckoutEvent((event) => {
+      if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+        setBanner({
+          tone: 'success',
+          message: 'Checkout complete. Your new plan is activating shortly.',
+        });
+        setTimeout(() => {
+          void refresh();
+        }, 1500);
+      } else if (event.name === CheckoutEventNames.CHECKOUT_FAILED) {
+        setBanner({
+          tone: 'warn',
+          message:
+            'Payment could not be completed. Your plan was not changed.',
+        });
+      }
+    });
+  }, [refresh]);
+
+  useEffect(() => {
     // Auto-upgrade flow: the register page redirects here with
-    // ?upgrade=starter|pro|business for guests who clicked a paid-plan CTA on
-    // the landing page. We start Stripe Checkout immediately so the user goes
-    // from registration → Stripe in one smooth redirect chain.
+    // ?upgrade=starter|pro|business for guests who clicked a paid-plan CTA
+    // on the landing page. Opening the overlay keeps the user on our domain
+    // and preserves the registration session.
     const upgradeTarget = searchParams.get('upgrade');
     if (
       upgradeTarget === 'starter' ||
@@ -106,19 +141,15 @@ function BillingPageBody() {
           : upgradeTarget === 'pro'
             ? 'Pro'
             : 'Business';
-      api
-        .createCheckout(upgradeTarget)
-        .then((res) => {
-          window.location.href = res.url;
-        })
-        .catch(() => {
-          // Stripe not configured (dev) or transient error — fall through
-          // to the normal billing page so the user can retry manually.
-          setBanner({
-            tone: 'warn',
-            message: `Could not start ${label} checkout automatically. Use the Upgrade button below.`,
-          });
+      openPaddleCheckout(upgradeTarget).catch((err) => {
+        setBanner({
+          tone: 'warn',
+          message:
+            err instanceof ApiError
+              ? err.message
+              : `Could not start ${label} checkout automatically. Use the Upgrade button below.`,
         });
+      });
     }
   }, [searchParams]);
 
@@ -174,7 +205,7 @@ function BillingPageBody() {
           <PlanCard data={data} />
           <UsageCard data={data} />
           <FeaturesCard data={data} />
-          <PlanActionsCard data={data} />
+          <PlanActionsCard data={data} onChanged={refresh} />
           {invoices && invoices.length > 0 && <InvoicesCard rows={invoices} />}
         </div>
       ) : (
@@ -350,14 +381,19 @@ function FeaturesCard({ data }: { data: SubscriptionView }) {
 }
 
 /**
- * Upgrade / Downgrade / Manage subscription controls. Hits our backend
- * which brokers a Stripe Checkout or Customer Portal session and returns a
- * URL — we replace `location.href` rather than open in a new tab so the
- * Stripe return URL lands back here cleanly.
+ * Upgrade / Downgrade / Manage subscription controls. Paddle overlay opens
+ * inline; card-update is a Paddle-hosted page (new tab); cancel goes through
+ * our backend and schedules cancellation at the end of the billing period.
  */
-function PlanActionsCard({ data }: { data: SubscriptionView }) {
+function PlanActionsCard({
+  data,
+  onChanged,
+}: {
+  data: SubscriptionView;
+  onChanged: () => void | Promise<void>;
+}) {
   const [busy, setBusy] = useState<
-    'starter' | 'pro' | 'business' | 'portal' | null
+    'starter' | 'pro' | 'business' | 'card' | 'cancel' | null
   >(null);
   const [error, setError] = useState('');
 
@@ -365,26 +401,51 @@ function PlanActionsCard({ data }: { data: SubscriptionView }) {
     setBusy(planKey);
     setError('');
     try {
-      const res = await api.createCheckout(planKey);
-      window.location.href = res.url;
+      await openPaddleCheckout(planKey);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Could not start checkout',
       );
+    } finally {
       setBusy(null);
     }
   };
 
-  const goPortal = async () => {
-    setBusy('portal');
+  const goUpdatePaymentMethod = async () => {
+    setBusy('card');
     setError('');
     try {
-      const res = await api.createPortal();
-      window.location.href = res.url;
+      const res = await api.getPaymentMethodUpdateUrl();
+      window.open(res.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Could not open portal',
+        err instanceof ApiError
+          ? err.message
+          : 'Could not open payment-method update page',
       );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const goCancel = async () => {
+    if (
+      !window.confirm(
+        'Cancel subscription at the end of the current billing period? You keep access until then.',
+      )
+    ) {
+      return;
+    }
+    setBusy('cancel');
+    setError('');
+    try {
+      await api.cancelSubscription();
+      await onChanged();
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Could not cancel subscription',
+      );
+    } finally {
       setBusy(null);
     }
   };
@@ -429,13 +490,24 @@ function PlanActionsCard({ data }: { data: SubscriptionView }) {
             </Button>
           )}
           {data.plan !== 'free' && (
-            <Button
-              variant="secondary"
-              loading={busy === 'portal'}
-              onClick={goPortal}
-            >
-              Manage payment method &amp; invoices
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                loading={busy === 'card'}
+                onClick={goUpdatePaymentMethod}
+              >
+                Update payment method
+              </Button>
+              {!data.cancelAtPeriodEnd && (
+                <Button
+                  variant="ghost"
+                  loading={busy === 'cancel'}
+                  onClick={goCancel}
+                >
+                  Cancel subscription
+                </Button>
+              )}
+            </>
           )}
         </div>
         {data.plan === 'free' && (
@@ -451,6 +523,18 @@ function PlanActionsCard({ data }: { data: SubscriptionView }) {
 }
 
 function InvoicesCard({ rows }: { rows: InvoiceView[] }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const downloadPdf = async (id: string) => {
+    setBusyId(id);
+    try {
+      const res = await api.getInvoicePdfUrl(id);
+      window.open(res.url, '_blank', 'noopener,noreferrer');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -462,7 +546,6 @@ function InvoicesCard({ rows }: { rows: InvoiceView[] }) {
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs uppercase text-gray-500">
                 <th className="py-2">Date</th>
-                <th className="py-2">Period</th>
                 <th className="py-2">Amount</th>
                 <th className="py-2">Status</th>
                 <th className="py-2 text-right">Invoice</th>
@@ -475,36 +558,19 @@ function InvoicesCard({ rows }: { rows: InvoiceView[] }) {
                     {new Date(r.createdAt).toLocaleDateString()}
                   </td>
                   <td className="py-2">
-                    {r.periodStart && r.periodEnd
-                      ? `${new Date(r.periodStart).toLocaleDateString()} → ${new Date(r.periodEnd).toLocaleDateString()}`
-                      : '—'}
-                  </td>
-                  <td className="py-2">
                     {r.currency.toUpperCase()}{' '}
                     {Number(r.amountPaid || r.amountDue).toFixed(2)}
                   </td>
                   <td className="py-2">{r.status}</td>
-                  <td className="py-2 text-right space-x-2">
-                    {r.hostedInvoiceUrl && (
-                      <a
-                        href={r.hostedInvoiceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-indigo-600 hover:underline"
-                      >
-                        View
-                      </a>
-                    )}
-                    {r.invoicePdfUrl && (
-                      <a
-                        href={r.invoicePdfUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-indigo-600 hover:underline"
-                      >
-                        PDF
-                      </a>
-                    )}
+                  <td className="py-2 text-right">
+                    <button
+                      type="button"
+                      disabled={busyId === r.id}
+                      onClick={() => downloadPdf(r.id)}
+                      className="text-indigo-600 hover:underline disabled:text-gray-400"
+                    >
+                      {busyId === r.id ? 'Loading…' : 'PDF'}
+                    </button>
                   </td>
                 </tr>
               ))}

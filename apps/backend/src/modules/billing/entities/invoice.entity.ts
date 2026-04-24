@@ -7,10 +7,10 @@ import {
 } from 'typeorm';
 
 /**
- * Local mirror of a Stripe invoice. Populated from the `invoice.*` webhook
- * events so we can render billing history without a round-trip to Stripe on
- * every /billing page view. Source of truth remains Stripe — we only store
- * what we need to display.
+ * Local mirror of a Paddle transaction (Paddle's term for an invoice).
+ * Populated from `transaction.*` webhook events so we can render billing
+ * history without a round-trip to Paddle on every /billing page view.
+ * Source of truth remains Paddle — we only store what we need to display.
  */
 @Entity('invoices')
 @Index('IDX_invoices_user', ['userId', 'createdAt'])
@@ -22,10 +22,10 @@ export class InvoiceEntity {
   userId: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  stripeInvoiceId: string;
+  paddleTransactionId: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  stripeSubscriptionId: string | null;
+  paddleSubscriptionId: string | null;
 
   @Column({ type: 'decimal', precision: 20, scale: 2 })
   amountDue: string;

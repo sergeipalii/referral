@@ -16,6 +16,13 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 # when Sentry isn't configured, which makes the client SDK a no-op.
 ARG NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+# Paddle client-side token + environment — also baked into the bundle.
+# Blank at build time means the /billing overlay will throw loudly on first
+# click rather than silently loading the wrong environment.
+ARG NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+ENV NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=$NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+ARG NEXT_PUBLIC_PADDLE_ENV
+ENV NEXT_PUBLIC_PADDLE_ENV=$NEXT_PUBLIC_PADDLE_ENV
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json tsconfig.json ./

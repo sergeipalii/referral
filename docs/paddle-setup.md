@@ -31,6 +31,22 @@ destinations are re-created from scratch when flipping environments.
 4. "What kind of business?" — answer truthfully (SaaS, solo). Sandbox
    metadata is non-binding.
 
+### 1.2a. Default payment link URL (required even for overlay)
+
+Paddle rejects overlay checkouts with
+`transaction_default_checkout_url_not_set` unless a default checkout URL
+is configured on the seller account — even though our flow opens the
+overlay inline and never redirects there.
+
+1. Dashboard → **Checkout** → **Checkout settings** →
+   **Default payment link URL**.
+2. Sandbox: paste `http://localhost:3000/billing` (or any valid URL —
+   it's a formality here).
+3. Save.
+
+When flipping to prod, set this to `https://refledger.io/billing` in the
+prod dashboard.
+
 ### 1.2. Website Verification — skip in sandbox
 
 **In sandbox Test mode, domain approval is not enforced.** Paddle.js

@@ -77,18 +77,29 @@ export function UpgradeModalHost() {
     setCheckoutBusy(true);
     setError('');
     try {
-      const ctx = await api.createCheckout(required);
-      const paddle = await getPaddle();
-      paddle.Checkout.open({
-        items: [{ priceId: ctx.priceId, quantity: 1 }],
-        customer: { id: ctx.customerId },
-        customData: ctx.customData,
-      });
-      // Overlay is open client-side — close the modal so the user sees it.
-      close();
+      // Free → paid: overlay (Paddle collects a card).
+      // Paid → paid: update the existing subscription via API so Paddle
+      // prorates instead of creating a duplicate subscription.
+      if (current.currentPlan && current.currentPlan !== 'free') {
+        await api.changePlan(required);
+        close();
+        // Hint the user to refresh — we can't refetch here without
+        // pulling more state into the global modal host.
+        setError('');
+      } else {
+        const ctx = await api.createCheckout(required);
+        const paddle = await getPaddle();
+        paddle.Checkout.open({
+          items: [{ priceId: ctx.priceId, quantity: 1 }],
+          customer: { id: ctx.customerId },
+          customData: ctx.customData,
+        });
+        // Overlay is open client-side — close the modal so the user sees it.
+        close();
+      }
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Could not start checkout',
+        err instanceof ApiError ? err.message : 'Could not change plan',
       );
       setCheckoutBusy(false);
     }

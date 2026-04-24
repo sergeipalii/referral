@@ -399,14 +399,23 @@ function PlanActionsCard({
   const [error, setError] = useState('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
+  // Free → paid = new subscription via overlay (Paddle collects a card).
+  // Paid → paid = update existing subscription via API (Paddle prorates
+  // the price difference against the card already on file — no overlay,
+  // no duplicate subscription, no double-charge).
   const goCheckout = async (planKey: 'starter' | 'pro' | 'business') => {
     setBusy(planKey);
     setError('');
     try {
-      await openPaddleCheckout(planKey);
+      if (data.plan === 'free') {
+        await openPaddleCheckout(planKey);
+      } else {
+        await api.changePlan(planKey);
+        await onChanged();
+      }
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : 'Could not start checkout',
+        err instanceof ApiError ? err.message : 'Could not change plan',
       );
     } finally {
       setBusy(null);

@@ -31,23 +31,23 @@ destinations are re-created from scratch when flipping environments.
 4. "What kind of business?" — answer truthfully (SaaS, solo). Sandbox
    metadata is non-binding.
 
-### 1.2. Website Verification (sandbox)
+### 1.2. Website Verification — skip in sandbox
 
-Paddle requires an approved domain before the checkout overlay will open
-— even in sandbox.
+**In sandbox Test mode, domain approval is not enforced.** Paddle.js
+identifies a sandbox client-side token and bypasses the domain check, so
+`http://localhost:3000/billing` opens the overlay fine without any
+domain list entry.
 
-1. Dashboard → **Checkout** (or **Developer Tools**) → **Website
-   Approval** / **Domains**.
-2. Add:
-   - `localhost` — for local dev
-   - `<your-ngrok-subdomain>.ngrok-free.app` — for webhook testing (see 1.7)
-   - Optional: `refledger.io` — only if you want to run a sandbox test
-     against the real prod domain via `NEXT_PUBLIC_PADDLE_ENV=sandbox`.
-     Risky — not recommended, keep sandbox and prod separated.
-3. Sandbox verification is usually automatic (just adding the domain).
-   If it asks for a meta tag, add it to
-   `apps/frontend/src/app/layout.tsx` inside `<head>` — but sandbox
-   rarely demands this.
+The Website Approval screen (**Checkout → Website Approval**) actively
+rejects `localhost` as "Invalid domain name" — it only accepts
+FQDNs.
+
+Webhook destinations (ngrok URL in 1.7) also do NOT need domain
+approval — that screen is purely about where the checkout **overlay**
+loads from (customer browser), not where webhooks **land** (our server).
+
+Domain approval is a **production-only** step — come back to it in
+`refledger.io` prod dashboard after KYC (section 3).
 
 ### 1.3. Create Products + Prices
 

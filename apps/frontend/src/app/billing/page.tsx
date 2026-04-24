@@ -6,6 +6,7 @@ import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { api, ApiError, type InvoiceView } from '@/lib/api';
 import {
   CheckoutEventNames,
@@ -396,6 +397,7 @@ function PlanActionsCard({
     'starter' | 'pro' | 'business' | 'card' | 'cancel' | null
   >(null);
   const [error, setError] = useState('');
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const goCheckout = async (planKey: 'starter' | 'pro' | 'business') => {
     setBusy(planKey);
@@ -428,14 +430,8 @@ function PlanActionsCard({
     }
   };
 
-  const goCancel = async () => {
-    if (
-      !window.confirm(
-        'Cancel subscription at the end of the current billing period? You keep access until then.',
-      )
-    ) {
-      return;
-    }
+  const confirmCancel = async () => {
+    setCancelConfirmOpen(false);
     setBusy('cancel');
     setError('');
     try {
@@ -502,7 +498,7 @@ function PlanActionsCard({
                 <Button
                   variant="ghost"
                   loading={busy === 'cancel'}
-                  onClick={goCancel}
+                  onClick={() => setCancelConfirmOpen(true)}
                 >
                   Cancel subscription
                 </Button>
@@ -518,6 +514,35 @@ function PlanActionsCard({
           </p>
         )}
       </CardBody>
+      <Modal
+        open={cancelConfirmOpen}
+        onClose={() => setCancelConfirmOpen(false)}
+        title="Cancel subscription?"
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-gray-700">
+            Your plan will remain active until the end of the current billing
+            period
+            {data.currentPeriodEnd
+              ? ` (${new Date(data.currentPeriodEnd).toLocaleDateString()})`
+              : ''}
+            . After that it reverts to Free — no further charges.
+          </p>
+          <p className="text-xs text-gray-500">
+            You can reactivate any time before the period ends by upgrading
+            again.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="secondary"
+              onClick={() => setCancelConfirmOpen(false)}
+            >
+              Keep subscription
+            </Button>
+            <Button onClick={confirmCancel}>Yes, cancel</Button>
+          </div>
+        </div>
+      </Modal>
     </Card>
   );
 }

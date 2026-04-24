@@ -165,3 +165,5 @@ the bundle at Docker build time).
 Sandbox = no KYC needed for dev. Production requires Paddle business
 verification (1–3 days); flip env vars + rebuild frontend image when
 approval lands.
+
+Full dashboard setup + domain-verification runbook: `docs/paddle-setup.md`.

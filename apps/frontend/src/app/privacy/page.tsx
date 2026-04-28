@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     'How Refledger collects, uses, and protects personal data. GDPR and CCPA rights included.',
 };
 
-const LAST_UPDATED = 'April 23, 2026';
+const LAST_UPDATED = 'April 28, 2026';
 
 export default function PrivacyPage() {
   return (
@@ -45,12 +45,14 @@ export default function PrivacyPage() {
 
         <div className="prose prose-gray mt-10 max-w-none text-gray-700 leading-relaxed">
           <p>
-            This Privacy Policy explains how Refledger (&ldquo;we&rdquo;,
-            &ldquo;us&rdquo;) collects, uses, and discloses personal data
-            when you use the Refledger platform and related websites (the
-            &ldquo;Service&rdquo;). It applies to visitors to our
-            marketing website, customers who register an account, and
-            partners who use the partner portal.
+            This Privacy Policy explains how Serpa Software LLC, a limited
+            liability company organized under the laws of the Kyrgyz
+            Republic, doing business as Refledger (&ldquo;Refledger&rdquo;,
+            &ldquo;we&rdquo;, &ldquo;us&rdquo;), collects, uses, and
+            discloses personal data when you use the Refledger platform
+            and related websites (the &ldquo;Service&rdquo;). It applies
+            to visitors to our marketing website, customers who register
+            an account, and partners who use the partner portal.
           </p>
           <p>
             It does <em>not</em> cover the separate processing that our
@@ -64,9 +66,9 @@ export default function PrivacyPage() {
             1. Who is the controller
           </h2>
           <p>
-            Refledger is the controller of personal data about visitors,
-            account holders (our direct customers), and partners invited
-            into the Service.
+            Serpa Software LLC (operating as Refledger) is the controller
+            of personal data about visitors, account holders (our direct
+            customers), and partners invited into the Service.
           </p>
           <p>
             For data submitted through the conversion-tracking API,

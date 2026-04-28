@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     'Terms of Service governing use of Refledger, a referral and affiliate tracking platform.',
 };
 
-const LAST_UPDATED = 'April 23, 2026';
+const LAST_UPDATED = 'April 28, 2026';
 
 export default function TermsPage() {
   return (
@@ -46,8 +46,10 @@ export default function TermsPage() {
           <p>
             These Terms of Service (&ldquo;Terms&rdquo;) are a legal agreement
             between you (&ldquo;Customer&rdquo;, &ldquo;you&rdquo;) and
-            Refledger (&ldquo;Refledger&rdquo;, &ldquo;we&rdquo;,
-            &ldquo;us&rdquo;) governing your access to and use of the
+            Serpa Software LLC, a limited liability company organized under
+            the laws of the Kyrgyz Republic, doing business as Refledger
+            (&ldquo;Refledger&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;,
+            &ldquo;our&rdquo;), governing your access to and use of the
             Refledger software-as-a-service platform and related websites,
             APIs, and documentation (collectively, the &ldquo;Service&rdquo;).
             By creating an account, accessing, or using the Service, you
@@ -101,20 +103,28 @@ export default function TermsPage() {
           </h2>
           <p>
             Paid plans are billed in advance on a recurring monthly cycle
-            through our third-party payment processor. By subscribing, you
-            authorize recurring charges to the payment method you provide
-            until you cancel. Fees are quoted exclusive of taxes; where our
-            payment processor acts as merchant of record, applicable sales
-            tax or VAT will be added at checkout and collected by the
-            processor.
+            through Paddle.com Market Limited (&ldquo;Paddle&rdquo;), which
+            acts as the merchant of record for your purchase. By
+            subscribing, you authorize recurring charges to the payment
+            method you provide until you cancel. Fees are quoted exclusive
+            of taxes; applicable sales tax or VAT is added at checkout and
+            collected by Paddle.
           </p>
           <p>
             You may cancel a paid subscription at any time from your
             billing settings. Cancellation takes effect at the end of the
-            current billing period; you retain access until then. We do
-            not offer pro-rated refunds for partial periods, except where
-            required by applicable law. Full details on refunds and the
-            EU/UK statutory right of withdrawal are set out in our{' '}
+            current billing period; you retain access until then. Refunds
+            are processed by Paddle as merchant of record and are governed
+            by the{' '}
+            <a
+              href="https://www.paddle.com/legal/buyer-terms"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-indigo-600 hover:text-indigo-500"
+            >
+              Paddle Buyer Terms
+            </a>
+            ; how to request one is described in our{' '}
             <Link
               href="/refund-policy"
               className="text-indigo-600 hover:text-indigo-500"
@@ -332,12 +342,12 @@ export default function TermsPage() {
             13. Governing law and disputes
           </h2>
           <p>
-            These Terms are governed by the laws of the jurisdiction in
-            which Refledger is established, excluding its conflict-of-laws
-            rules. The parties agree to the exclusive jurisdiction of the
-            courts located in that jurisdiction for any dispute that
-            cannot be resolved informally, unless a mandatory consumer-
-            protection law of your residence provides otherwise.
+            These Terms are governed by the laws of the Kyrgyz Republic,
+            excluding its conflict-of-laws rules. The parties agree to the
+            exclusive jurisdiction of the courts located in the Kyrgyz
+            Republic for any dispute that cannot be resolved informally,
+            unless a mandatory consumer-protection law of your residence
+            provides otherwise.
           </p>
           <p>
             Before filing a claim, you agree to contact us at{' '}

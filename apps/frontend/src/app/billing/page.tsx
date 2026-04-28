@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { SandboxCheckoutHint } from '@/components/sandbox-banner';
 import { api, ApiError, type InvoiceView } from '@/lib/api';
 import {
   CheckoutEventNames,
@@ -206,6 +207,7 @@ function BillingPageBody() {
           <PlanCard data={data} />
           <UsageCard data={data} />
           <FeaturesCard data={data} />
+          <SandboxCheckoutHint />
           <PlanActionsCard data={data} onChanged={refresh} />
           {invoices && invoices.length > 0 && <InvoicesCard rows={invoices} />}
         </div>

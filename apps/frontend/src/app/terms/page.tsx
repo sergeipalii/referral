@@ -24,6 +24,9 @@ export default function TermsPage() {
             <Link href="/privacy" className="hover:text-gray-900">
               Privacy
             </Link>
+            <Link href="/refund-policy" className="hover:text-gray-900">
+              Refunds
+            </Link>
             <Link href="/" className="hover:text-gray-900">
               Home
             </Link>
@@ -68,10 +71,10 @@ export default function TermsPage() {
             your credentials and API keys, and for all activity that occurs
             under your account. Notify us promptly at{' '}
             <a
-              href="mailto:hello@refledger.io"
+              href="mailto:info@sepia.software"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              hello@refledger.io
+              info@sepia.software
             </a>{' '}
             of any suspected unauthorized use.
           </p>
@@ -110,7 +113,15 @@ export default function TermsPage() {
             billing settings. Cancellation takes effect at the end of the
             current billing period; you retain access until then. We do
             not offer pro-rated refunds for partial periods, except where
-            required by applicable law.
+            required by applicable law. Full details on refunds and the
+            EU/UK statutory right of withdrawal are set out in our{' '}
+            <Link
+              href="/refund-policy"
+              className="text-indigo-600 hover:text-indigo-500"
+            >
+              Refund Policy
+            </Link>
+            .
           </p>
           <p>
             We may change subscription pricing on at least 30 days&rsquo;
@@ -331,10 +342,10 @@ export default function TermsPage() {
           <p>
             Before filing a claim, you agree to contact us at{' '}
             <a
-              href="mailto:hello@refledger.io"
+              href="mailto:info@sepia.software"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              hello@refledger.io
+              info@sepia.software
             </a>{' '}
             and attempt in good faith to resolve the dispute for at least
             30 days.
@@ -359,10 +370,10 @@ export default function TermsPage() {
           <p>
             Questions about these Terms? Email{' '}
             <a
-              href="mailto:hello@refledger.io"
+              href="mailto:info@sepia.software"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              hello@refledger.io
+              info@sepia.software
             </a>
             .
           </p>
@@ -375,6 +386,9 @@ export default function TermsPage() {
           <nav className="flex gap-6">
             <Link href="/privacy" className="hover:text-gray-900">
               Privacy
+            </Link>
+            <Link href="/refund-policy" className="hover:text-gray-900">
+              Refunds
             </Link>
             <Link href="/" className="hover:text-gray-900">
               Home

@@ -320,17 +320,28 @@ POST https://api.example.com/api/webhooks/mmp/
               <Link href="/system-overview" className="hover:text-gray-900">
                 Documentation
               </Link>
-              <Link href="/login" className="hover:text-gray-900">
-                Sign in
-              </Link>
-              <Link href="/register" className="hover:text-gray-900">
-                Register
-              </Link>
+              {user ? (
+                <Link href="/partners" className="hover:text-gray-900">
+                  Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="hover:text-gray-900">
+                    Sign in
+                  </Link>
+                  <Link href="/register" className="hover:text-gray-900">
+                    Register
+                  </Link>
+                </>
+              )}
               <Link href="/terms" className="hover:text-gray-900">
                 Terms
               </Link>
               <Link href="/privacy" className="hover:text-gray-900">
                 Privacy
+              </Link>
+              <Link href="/refund-policy" className="hover:text-gray-900">
+                Refunds
               </Link>
             </nav>
           </div>

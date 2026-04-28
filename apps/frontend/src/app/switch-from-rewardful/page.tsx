@@ -202,6 +202,9 @@ export default function SwitchFromRewardfulPage() {
             <Link href="/privacy" className="hover:text-gray-900">
               Privacy
             </Link>
+            <Link href="/refund-policy" className="hover:text-gray-900">
+              Refunds
+            </Link>
           </nav>
         </div>
       </footer>

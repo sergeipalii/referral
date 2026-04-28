@@ -25,6 +25,9 @@ export default function PrivacyPage() {
             <Link href="/terms" className="hover:text-gray-900">
               Terms
             </Link>
+            <Link href="/refund-policy" className="hover:text-gray-900">
+              Refunds
+            </Link>
             <Link href="/" className="hover:text-gray-900">
               Home
             </Link>
@@ -186,10 +189,10 @@ export default function PrivacyPage() {
           <p>
             For an up-to-date list of sub-processors, email{' '}
             <a
-              href="mailto:hello@refledger.io"
+              href="mailto:info@sepia.software"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              hello@refledger.io
+              info@sepia.software
             </a>
             .
           </p>
@@ -283,10 +286,10 @@ export default function PrivacyPage() {
           <p>
             To exercise any of these rights, email{' '}
             <a
-              href="mailto:hello@refledger.io"
+              href="mailto:info@sepia.software"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              hello@refledger.io
+              info@sepia.software
             </a>
             . We will respond within the timeframes required by applicable
             law.
@@ -340,10 +343,10 @@ export default function PrivacyPage() {
           <p>
             Privacy questions or requests? Email{' '}
             <a
-              href="mailto:hello@refledger.io"
+              href="mailto:info@sepia.software"
               className="text-indigo-600 hover:text-indigo-500"
             >
-              hello@refledger.io
+              info@sepia.software
             </a>
             . If you are in the EEA or UK and cannot resolve an issue with
             us, you have the right to lodge a complaint with your local
@@ -358,6 +361,9 @@ export default function PrivacyPage() {
           <nav className="flex gap-6">
             <Link href="/terms" className="hover:text-gray-900">
               Terms
+            </Link>
+            <Link href="/refund-policy" className="hover:text-gray-900">
+              Refunds
             </Link>
             <Link href="/" className="hover:text-gray-900">
               Home

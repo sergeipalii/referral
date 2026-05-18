@@ -116,6 +116,16 @@ export interface ApiKeyCreated {
   createdAt: string;
 }
 
+export interface PromoCode {
+  id: string;
+  partnerId: string;
+  code: string;
+  usageLimit: number | null;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface PaginationMeta {
   page: number;
   limit: number;

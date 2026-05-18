@@ -11,6 +11,7 @@ import type {
   ApiKeyCreated,
   PaginatedResponse,
   PartnerInvitationCreated,
+  PromoCode,
   SubscriptionView,
 } from './types';
 
@@ -407,31 +408,24 @@ class ApiClient {
     code: string;
     usageLimit?: number | null;
   }) {
-    return this.post<{
-      id: string;
-      partnerId: string;
-      code: string;
-      usageLimit: number | null;
-      usedCount: number;
-      isActive: boolean;
-      createdAt: string;
-    }>('/promo-codes', data);
+    return this.post<PromoCode>('/promo-codes', data);
   }
 
   getPromoCodes(partnerId?: string) {
     const q = new URLSearchParams();
     if (partnerId) q.set('partnerId', partnerId);
-    return this.get<
-      {
-        id: string;
-        partnerId: string;
-        code: string;
-        usageLimit: number | null;
-        usedCount: number;
-        isActive: boolean;
-        createdAt: string;
-      }[]
-    >(`/promo-codes?${q}`);
+    return this.get<PromoCode[]>(`/promo-codes?${q}`);
+  }
+
+  updatePromoCode(
+    id: string,
+    data: {
+      usageLimit?: number | null;
+      isActive?: boolean;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    return this.patch<PromoCode>(`/promo-codes/${id}`, data);
   }
 
   deletePromoCode(id: string) {

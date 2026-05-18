@@ -5,6 +5,7 @@ import type {
   PartnerDashboard,
   PartnerSelf,
   Payment,
+  PromoCode,
 } from './types';
 import { ApiError } from './api';
 
@@ -157,16 +158,7 @@ class PartnerApiClient {
   // ─── Promo codes (read-only) ─────────────────────────────────────
 
   getPromoCodes() {
-    return this.request<
-      {
-        id: string;
-        code: string;
-        usageLimit: number | null;
-        usedCount: number;
-        isActive: boolean;
-        createdAt: string;
-      }[]
-    >('/partner-portal/promo-codes');
+    return this.request<PromoCode[]>('/partner-portal/promo-codes');
   }
 
   // ─── Analytics ─────────────────────────────────────────────────────

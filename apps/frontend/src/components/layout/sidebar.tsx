@@ -8,6 +8,7 @@ const navItems = [
   { href: '/analytics', label: 'Analytics', icon: 'A' },
   { href: '/partners', label: 'Partners', icon: 'P' },
   { href: '/rules', label: 'Accrual Rules', icon: 'R' },
+  { href: '/promo-codes', label: 'Promo Codes', icon: '%' },
   { href: '/conversions', label: 'Conversions', icon: 'C' },
   { href: '/payments', label: 'Payments', icon: '$' },
   { href: '/integration', label: 'Integration', icon: 'I' },

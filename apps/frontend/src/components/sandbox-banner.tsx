@@ -1,18 +1,5 @@
 const IS_SANDBOX = process.env.NEXT_PUBLIC_PADDLE_ENV === 'sandbox';
 
-export function SandboxBanner() {
-  if (!IS_SANDBOX) return null;
-  return (
-    <div className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-amber-950">
-      <span aria-hidden className="mr-1">
-        ⚠️
-      </span>
-      Sandbox / preview mode — payments are simulated. No real charges or
-      subscriptions are created.
-    </div>
-  );
-}
-
 export function SandboxCheckoutHint() {
   if (!IS_SANDBOX) return null;
   return (

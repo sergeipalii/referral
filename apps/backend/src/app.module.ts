@@ -22,6 +22,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PromoCodesModule } from './modules/promo-codes/promo-codes.module';
 import { ClicksModule } from './modules/clicks/clicks.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { ClicksModule } from './modules/clicks/clicks.module';
     AnalyticsModule,
     PromoCodesModule,
     ClicksModule,
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [

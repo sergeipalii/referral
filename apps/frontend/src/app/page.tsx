@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
-import { PricingSection } from '@/components/landing/pricing-section';
+// Pricing is hidden during pilot — re-enable when paid plans go live again.
+// import { PricingSection } from '@/components/landing/pricing-section';
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -21,9 +22,9 @@ export default function LandingPage() {
               <a href="#features" className="hover:text-gray-900">
                 Features
               </a>
-              <a href="#pricing" className="hover:text-gray-900">
-                Pricing
-              </a>
+              <Link href="/feedback" className="hover:text-gray-900">
+                Feedback
+              </Link>
               <Link href="/system-overview" className="hover:text-gray-900">
                 Docs
               </Link>
@@ -75,15 +76,15 @@ export default function LandingPage() {
               </Button>
             </Link>
           )}
-          <a href="#pricing">
+          <Link href="/feedback">
             <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-              See pricing
+              Send feedback
             </Button>
-          </a>
+          </Link>
         </div>
         {!user && (
           <p className="mt-4 text-xs text-gray-500">
-            Free forever for small programs. No credit card required.
+            Free during the pilot. No credit card required.
           </p>
         )}
       </section>
@@ -164,8 +165,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Pricing (subscription-aware) ────────────────────────────────── */}
-      <PricingSection />
+      {/* ── Pricing (hidden during pilot) ───────────────────────────────── */}
+      {/* <PricingSection /> */}
+
+      {/* ── Pilot-mode banner ───────────────────────────────────────────── */}
+      <section
+        id="pilot"
+        className="border-t border-gray-200 bg-amber-50 py-20"
+      >
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+            Pilot mode
+          </span>
+          <h2 className="mt-4 text-3xl font-bold text-gray-900">
+            The platform is running in pilot mode
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-gray-700">
+            We&apos;re onboarding early users and iterating fast. Pricing is
+            paused while we polish things — using the product is free during
+            the pilot. If you run into something rough or have an idea,
+            please let us know.
+          </p>
+          <div className="mt-8">
+            <Link href="/feedback">
+              <Button size="lg">Share feedback</Button>
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* ── Comparison: Refledger vs Rewardful ──────────────────────────── */}
       <section className="border-t border-gray-200 bg-white py-24">
@@ -281,7 +308,8 @@ POST https://api.example.com/api/webhooks/mmp/
           </h2>
           <p className="mt-4 text-lg text-indigo-100">
             Create your account and set up your first referral partner in
-            minutes. Free forever for small programs — upgrade anytime.
+            minutes. Free during the pilot — your feedback shapes what
+            ships next.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
             {user ? (
@@ -299,12 +327,12 @@ POST https://api.example.com/api/webhooks/mmp/
                 Create free account
               </Link>
             )}
-            <a
-              href="#pricing"
+            <Link
+              href="/feedback"
               className="inline-flex items-center justify-center rounded-lg border border-white/30 px-6 py-3 text-base font-medium text-white hover:bg-indigo-500 transition-colors"
             >
-              Compare plans
-            </a>
+              Send feedback
+            </Link>
           </div>
         </div>
       </section>
@@ -319,6 +347,9 @@ POST https://api.example.com/api/webhooks/mmp/
             <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-500">
               <Link href="/system-overview" className="hover:text-gray-900">
                 Documentation
+              </Link>
+              <Link href="/feedback" className="hover:text-gray-900">
+                Feedback
               </Link>
               {user ? (
                 <Link href="/partners" className="hover:text-gray-900">

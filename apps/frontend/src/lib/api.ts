@@ -545,6 +545,11 @@ class ApiClient {
       `/billing/invoices/${invoiceId}/pdf-url`,
     );
   }
+
+  // Feedback (public, no auth required)
+  submitFeedback(data: { name?: string; email?: string; message: string }) {
+    return this.post<{ delivered: boolean }>('/feedback', data);
+  }
 }
 
 export interface InvoiceView {

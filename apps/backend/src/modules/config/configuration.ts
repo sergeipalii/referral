@@ -36,4 +36,10 @@ export default () => ({
     frontendBaseUrl:
       process.env.BILLING_FRONTEND_BASE_URL || 'http://localhost:3000',
   },
+  // Telegram delivery channel for the pilot-mode feedback form. Both must
+  // be set, otherwise POST /api/feedback 503s with a clear error.
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN || null,
+    chatId: process.env.TELEGRAM_CHAT_ID || null,
+  },
 });

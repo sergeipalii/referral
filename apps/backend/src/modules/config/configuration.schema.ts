@@ -17,4 +17,8 @@ export const configValidationSchema = Joi.object({
   PADDLE_PRICE_PRO: Joi.string().optional(),
   PADDLE_PRICE_BUSINESS: Joi.string().optional(),
   BILLING_FRONTEND_BASE_URL: Joi.string().uri().optional(),
+
+  // Telegram — optional. The /api/feedback endpoint 503s when missing.
+  TELEGRAM_BOT_TOKEN: Joi.string().optional(),
+  TELEGRAM_CHAT_ID: Joi.string().optional(),
 }).unknown(true);

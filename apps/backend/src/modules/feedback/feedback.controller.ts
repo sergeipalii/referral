@@ -1,4 +1,4 @@
-import { Body, Controller, Ip, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Headers, Ip, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { FeedbackService } from './feedback.service';
@@ -20,7 +20,13 @@ export class FeedbackController {
   async submit(
     @Body() dto: SubmitFeedbackDto,
     @Ip() ip: string,
+    @Headers('origin') origin?: string,
+    @Headers('referer') referer?: string,
+    @Headers('host') host?: string,
   ): Promise<FeedbackResultDto> {
-    return this.feedbackService.submit(dto, ip);
+    return this.feedbackService.submit(dto, {
+      ip,
+      origin: origin ?? referer ?? (host ? `https://${host}` : undefined),
+    });
   }
 }

@@ -14,7 +14,7 @@ export class FeedbackService {
 
   async submit(
     dto: SubmitFeedbackDto,
-    sourceIp?: string,
+    source: { ip?: string; origin?: string } = {},
   ): Promise<{ delivered: boolean }> {
     const botToken = this.config.get<string | null>('telegram.botToken');
     const chatId = this.config.get<string | null>('telegram.chatId');
@@ -29,7 +29,7 @@ export class FeedbackService {
       );
     }
 
-    const text = this.formatMessage(dto, sourceIp);
+    const text = this.formatMessage(dto, source);
 
     const res = await fetch(
       `https://api.telegram.org/bot${botToken}/sendMessage`,
@@ -58,7 +58,10 @@ export class FeedbackService {
     return { delivered: true };
   }
 
-  private formatMessage(dto: SubmitFeedbackDto, sourceIp?: string): string {
+  private formatMessage(
+    dto: SubmitFeedbackDto,
+    source: { ip?: string; origin?: string },
+  ): string {
     const lines = [
       '<b>New pilot feedback</b>',
       '',
@@ -68,8 +71,11 @@ export class FeedbackService {
     if (dto.email) {
       lines.push(`<b>Email:</b> ${escapeHtml(dto.email)}`);
     }
-    if (sourceIp) {
-      lines.push(`<b>IP:</b> ${escapeHtml(sourceIp)}`);
+    if (source.origin) {
+      lines.push(`<b>Source:</b> ${escapeHtml(source.origin)}`);
+    }
+    if (source.ip) {
+      lines.push(`<b>IP:</b> ${escapeHtml(source.ip)}`);
     }
 
     lines.push('', escapeHtml(dto.message.trim()));

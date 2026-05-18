@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { HmacAuthGuard } from '../auth/guards/hmac-auth.guard';
 import { CombinedAuthGuard } from '../auth/guards/combined-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiKeyThrottleGuard } from '../../common/guards/api-key-throttle.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ConversionsService } from './conversions.service';
@@ -49,6 +50,24 @@ export class ConversionsController {
   })
   @ApiResponse({ status: 201, type: TrackResultDto })
   track(
+    @GetUser('id') userId: string,
+    @Body() dto: TrackConversionDto,
+  ): Promise<TrackResultDto> {
+    return this.conversionsService.track(userId, dto);
+  }
+
+  // Owner-only manual entry. Same pipeline as /track (resolveAndIncrement,
+  // attribution, accrual) but authenticated with the owner's JWT instead of
+  // an API key + HMAC. Used by the admin UI to record offline conversions —
+  // e.g. a customer redeeming a promo code during an out-of-band payment.
+  @Post('manual')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Record a conversion manually (owner JWT auth, no HMAC)',
+  })
+  @ApiResponse({ status: 201, type: TrackResultDto })
+  manualTrack(
     @GetUser('id') userId: string,
     @Body() dto: TrackConversionDto,
   ): Promise<TrackResultDto> {

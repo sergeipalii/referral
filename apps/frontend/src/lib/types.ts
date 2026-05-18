@@ -126,6 +126,17 @@ export interface PromoCode {
   createdAt: string;
 }
 
+export interface TrackResult {
+  success: boolean;
+  partnerId: string;
+  eventName: string;
+  eventDate: string;
+  count: number;
+  revenue: number;
+  accrualAmount: string;
+  accrualRuleId: string | null;
+}
+
 export interface PaginationMeta {
   page: number;
   limit: number;

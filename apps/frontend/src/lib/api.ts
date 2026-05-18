@@ -13,6 +13,7 @@ import type {
   PartnerInvitationCreated,
   PromoCode,
   SubscriptionView,
+  TrackResult,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -430,6 +431,19 @@ class ApiClient {
 
   deletePromoCode(id: string) {
     return this.delete(`/promo-codes/${id}`);
+  }
+
+  // Manual conversion entry (owner JWT) — used for offline redemptions.
+  manualTrackConversion(data: {
+    eventName: string;
+    promoCode?: string;
+    partnerCode?: string;
+    externalUserId?: string;
+    revenue?: number;
+    count?: number;
+    idempotencyKey?: string;
+  }) {
+    return this.post<TrackResult>('/conversions/manual', data);
   }
 
   // Analytics

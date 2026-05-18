@@ -62,25 +62,21 @@ export class FeedbackService {
     dto: SubmitFeedbackDto,
     source: { ip?: string; origin?: string },
   ): string {
-    const lines = [
-      '<b>New pilot feedback</b>',
+    const dash = '—';
+    const name = dto.name?.trim() || dash;
+    const email = dto.email?.trim() || dash;
+    const sourceUrl = source.origin?.trim() || dash;
+
+    return [
+      '<b>Новый запрос с сайта</b>',
+      escapeHtml(sourceUrl),
       '',
-      `<b>From:</b> ${escapeHtml(dto.name?.trim() || 'anonymous')}`,
-    ];
-
-    if (dto.email) {
-      lines.push(`<b>Email:</b> ${escapeHtml(dto.email)}`);
-    }
-    if (source.origin) {
-      lines.push(`<b>Source:</b> ${escapeHtml(source.origin)}`);
-    }
-    if (source.ip) {
-      lines.push(`<b>IP:</b> ${escapeHtml(source.ip)}`);
-    }
-
-    lines.push('', escapeHtml(dto.message.trim()));
-
-    return lines.join('\n');
+      `<b>Имя:</b> ${escapeHtml(name)}`,
+      `<b>Email:</b> ${escapeHtml(email)}`,
+      '',
+      '<b>Сообщение</b>',
+      escapeHtml(dto.message.trim()),
+    ].join('\n');
   }
 }
 

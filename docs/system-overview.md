@@ -1,5 +1,9 @@
 # System Overview
 
+> ⚠️ **Проект заморожен с 2026-06-23, продакшен-сервер удалён.** Документ ниже
+> описывает систему на момент заморозки и не подкреплён живым окружением.
+> См. [`project-status.md`](project-status.md).
+
 Полное описание текущих возможностей системы. Документ отражает состояние на 2026-04-17.
 
 ---
@@ -388,7 +392,7 @@ STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_PRO=price_...
 STRIPE_PRICE_BUSINESS=price_...
-BILLING_FRONTEND_BASE_URL=https://ref.palii.me
+BILLING_FRONTEND_BASE_URL=https://refledger.io
 ```
 
 Без этих переменных free-план работает полностью; кнопки Upgrade/Manage/webhook отвечают 503.
